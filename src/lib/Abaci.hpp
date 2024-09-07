@@ -1,0 +1,45 @@
+#ifndef Abaci_hpp
+#define Abaci_hpp
+
+#include "utility/Type.hpp"
+#include "utility/Operator.hpp"
+#include "utility/Context.hpp"
+#include <cstdint>
+
+namespace abaci::lib {
+
+using abaci::utility::Complex;
+using abaci::utility::String;
+using abaci::utility::Instance;
+using abaci::utility::Operator;
+using abaci::utility::Context;
+using abaci::utility::AbaciValue;
+
+Complex *makeComplex(double real, double imag);
+String *makeString(char8_t *str, std::size_t len);
+Instance *makeInstance(char8_t *className, std::size_t size);
+
+Complex *cloneComplex(Complex *existing);
+String *cloneString(String *existing);
+Instance *cloneInstance(Instance *existing);
+
+void destroyComplex(Complex *object);
+void destroyString(String *object);
+void destroyInstance(Instance *object);
+
+int compareString(String *str1, String *str2);
+String *concatString(String *str1, String *str2);
+Complex *opComplex(Operator op, Complex *operand1, Complex *operand2);
+
+String *userInput(Context *ctx);
+AbaciValue toType(int to_type, AbaciValue value, int from_type);
+
+template<typename T>
+void printValue(Context *ctx, T value);
+
+void printComma(Context *ctx);
+void printLn(Context *ctx);
+
+} // namespace abaci::lib
+
+#endif

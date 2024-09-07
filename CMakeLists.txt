@@ -1,0 +1,46 @@
+cmake_minimum_required(VERSION 3.25.1)
+project(Abaci)
+
+# Compiler settings
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Include directories
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+# Check for X3 header
+include(CheckIncludeFileCXX)
+check_include_file_cxx("boost/spirit/home/x3.hpp" HAVE_BOOST_SPIRIT_X3)
+
+# Find LLVM
+find_package(LLVM REQUIRED CONFIG)
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
+
+# Find fmt
+find_package(fmt REQUIRED)
+
+# Source files
+set(SOURCES
+    src/lib/Abaci.cpp
+    src/utility/Constant.cpp
+    src/utility/Operator.cpp
+    src/utility/Symbol.cpp
+    src/utility/Type.cpp
+    src/parser/Parse.cpp
+    src/codegen/ExprCodeGen.cpp
+    src/codegen/StmtCodeGen.cpp
+    src/codegen/TypeCodeGen.cpp
+    src/engine/Cache.cpp
+    src/engine/JIT.cpp
+    src/engine/Utility.cpp
+    src/main.cpp
+)
+
+# Executable
+add_executable(abaci ${SOURCES})
+
+# Link LLVM libraries
+llvm_map_components_to_libnames(LLVM_LIBS core executionengine interpreter analysis native bitwriter orcjit)
+target_link_libraries(abaci ${LLVM_LIBS} fmt::fmt)

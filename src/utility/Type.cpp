@@ -1,0 +1,194 @@
+#include "Type.hpp"
+#include "Report.hpp"
+#include "localize/Messages.hpp"
+#include "localize/Keywords.hpp"
+#include <charconv>
+
+namespace abaci::utility {
+
+AbaciValue::Type typeToScalar(const Type& type) {
+    if (std::holds_alternative<AbaciValue::Type>(type)) {
+        return std::get<AbaciValue::Type>(type);
+    }
+    else if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+        auto typePtr = std::get<std::shared_ptr<TypeBase>>(type);
+        AbaciValue::Type scalarConstant = typePtr->isConstant ? AbaciValue::Constant : AbaciValue::None;
+        if (std::dynamic_pointer_cast<TypeInstance>(typePtr)) {
+            return static_cast<AbaciValue::Type>(AbaciValue::Instance | scalarConstant);
+        }
+        else if (std::dynamic_pointer_cast<TypeList>(typePtr)) {
+            return static_cast<AbaciValue::Type>(AbaciValue::List | scalarConstant);
+        }
+        else {
+            UnexpectedError0(BadType);
+        }
+    }
+    else {
+        UnexpectedError0(BadType);
+    }
+}
+
+bool isConstant(const Type& type) {
+    if (std::holds_alternative<AbaciValue::Type>(type)) {
+        return std::get<AbaciValue::Type>(type) & AbaciValue::Constant;
+    }
+    else if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+        return std::get<std::shared_ptr<TypeBase>>(type)->isConstant;
+    }
+    else {
+        UnexpectedError0(BadType);
+    }
+}
+
+Type addConstToType(const Type& type) {
+    if (std::holds_alternative<AbaciValue::Type>(type)) {
+        return static_cast<AbaciValue::Type>(std::get<AbaciValue::Type>(type) | AbaciValue::Constant);
+    }
+    else if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+        if (auto instance = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type))) {
+            auto constType = std::make_shared<TypeInstance>(*instance);
+            constType->isConstant = true;
+            return constType;
+        }
+        UnexpectedError0(NotImpl);
+    }
+    else {
+        UnexpectedError0(BadType);
+    }
+}
+
+Type removeConstFromType(const Type& type) {
+    if (std::holds_alternative<AbaciValue::Type>(type)) {
+        return static_cast<AbaciValue::Type>(std::get<AbaciValue::Type>(type) & ~AbaciValue::Constant);
+    }
+    else if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+        if (auto instance = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type))) {
+            auto nonConstType = std::make_shared<TypeInstance>(*instance);
+            nonConstType->isConstant = false;
+            return nonConstType;
+        }
+        UnexpectedError0(NotImpl);
+    }
+    else {
+        UnexpectedError0(BadType);
+    }
+}
+
+std::string mangled(const std::string& name, const std::vector<Type>& types) {
+    std::string function_name;
+    for (unsigned char ch : name) {
+        if (ch >= 0x80 || ch == '\'') {
+            function_name.push_back('.');
+            char buffer[16];
+            auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), static_cast<int>(ch), 16);
+            if (ec != std::errc()) {
+                UnexpectedError0(BadNumericConv);
+            }
+            *ptr = '\0';
+            function_name.append(buffer);
+        }
+        else if (isalnum(ch) || ch == '_' || ch == '.') {
+            function_name.push_back(ch);
+        }
+        else {
+            UnexpectedError0(BadChar);
+        }
+    }
+    for (const auto& parameter_type : types) {
+        function_name.push_back('.');
+        if (std::holds_alternative<AbaciValue::Type>(parameter_type)) {
+            char buffer[16];
+            auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer),
+                static_cast<int>(std::get<AbaciValue::Type>(parameter_type) & AbaciValue::TypeMask), 10);
+            if (ec != std::errc()) {
+                UnexpectedError0(BadNumericConv);
+            }
+            *ptr = '\0';
+            function_name.append(buffer);
+        }
+        else if (std::holds_alternative<std::shared_ptr<TypeBase>>(parameter_type)) {
+            if (auto instance = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(parameter_type))) {
+                for (unsigned char ch : instance->className) {
+                    if (ch >= 0x80 || ch == '\'') {
+                        function_name.push_back('.');
+                        char buffer[16];
+                        auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), static_cast<int>(ch), 16);
+                        if (ec != std::errc()) {
+                            UnexpectedError0(BadNumericConv);
+                        }
+                        *ptr = '\0';
+                        function_name.append(buffer);
+                    }
+                    else if (isalnum(ch) || ch == '_' || ch == '.') {
+                        function_name.push_back(ch);
+                    }
+                    else {
+                        UnexpectedError0(BadChar);
+                    }
+                }
+            }
+            else {
+                UnexpectedError0(NotImpl);
+            }
+        }
+    }
+    return function_name;
+}
+
+
+bool operator==(const Type& lhs, const Type& rhs) {
+    if (lhs.index() != rhs.index()) {
+        return false;
+    }
+    else if (std::holds_alternative<AbaciValue::Type>(lhs)) {
+        return (std::get<AbaciValue::Type>(lhs) & ~AbaciValue::Constant)
+            == (std::get<AbaciValue::Type>(rhs) & ~AbaciValue::Constant);
+    }
+    else if (std::holds_alternative<std::shared_ptr<TypeBase>>(lhs)) {
+        if (auto lhsPtr = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(lhs)),
+            rhsPtr = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(rhs)); lhsPtr && rhsPtr) {
+            return lhsPtr->className == rhsPtr->className;
+        }
+        else if (auto lhsPtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(lhs)),
+            rhsPtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(rhs)); lhsPtr && rhsPtr) {
+            if (lhsPtr->element_type != rhsPtr->element_type) {
+                return false;
+            }
+            else if (lhsPtr->dimensions.size() == rhsPtr->dimensions.size()) {
+                for (auto iter1 = lhsPtr->dimensions.cbegin(), iter2 = rhsPtr->dimensions.cbegin(); iter1 != lhsPtr->dimensions.cend(); ++iter1, ++iter2) {
+                    if (*iter1 != *iter2) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+        return false;
+    }
+    else {
+        UnexpectedError0(BadType);
+    }
+}
+    
+const std::unordered_map<std::string,AbaciValue::Type> TypeConversions{
+    { INT, AbaciValue::Integer },
+    { FLOAT, AbaciValue::Floating },
+    { COMPLEX, AbaciValue::Complex },
+    { STR, AbaciValue::String },
+    { REAL, AbaciValue::Real },
+    { IMAG, AbaciValue::Imag }
+};
+
+const std::unordered_map<AbaciValue::Type,std::vector<AbaciValue::Type>> ValidConversions{
+    { AbaciValue::Integer, { AbaciValue::Boolean, AbaciValue::Integer, AbaciValue::Floating, AbaciValue::String } },
+    { AbaciValue::Floating, { AbaciValue::Boolean, AbaciValue::Integer, AbaciValue::Floating, AbaciValue::String } },
+    { AbaciValue::Complex, { AbaciValue::Integer, AbaciValue::Floating, AbaciValue::Complex, AbaciValue::String } },
+    { AbaciValue::String, { AbaciValue::Boolean, AbaciValue::Integer, AbaciValue::Floating, AbaciValue::Complex, AbaciValue::String } },
+    { AbaciValue::Real, { AbaciValue::Complex } },
+    { AbaciValue::Imag, { AbaciValue::Complex } }
+};
+
+} // namespace abaci::utility
