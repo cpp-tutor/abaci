@@ -95,7 +95,7 @@ Math operators
 
 `=` (same as assign constant, but in different context), `/=`, `<`, `<=`, `>=`, `>`, `<`/`<=` value `<`/`<=`
 
-Decisions
+### Decisions
 
 ```
 if *condition*
@@ -109,6 +109,8 @@ if *condition*
 else
     statements...
 endif
+```
+
 ```
 case *expression>
   when *match1* statements...
