@@ -1,19 +1,15 @@
 #include "Utility.hpp"
-#include "JIT.hpp"
-#include "utility/Report.hpp"
+#include "engine/JIT.hpp"
+#include "Report.hpp"
 #include "localize/Messages.hpp"
 
-namespace abaci::engine {
+namespace abaci::utility {
 
 using llvm::AllocaInst;
 using llvm::PointerType;
 using llvm::ArrayType;
 using llvm::Value;
 using LLVMType = llvm::Type*;
-using abaci::utility::typeToScalar;
-using abaci::utility::removeConstFromType;
-using abaci::utility::TypeBase;
-using abaci::utility::TypeInstance;
 
 void destroyValue(JIT& jit, Value *value, const Type& type) {
     switch (typeToScalar(removeConstFromType(type))) {
@@ -113,19 +109,19 @@ Value *loadMutableValue(JIT& jit, Value *allocValue, const Type& type) {
 }
 
 void storeGlobalValue(JIT& jit, std::size_t index, Value *value) {
-    auto *context = getContextValue(jit);
-    ArrayType *array_type = ArrayType::get(jit.getBuilder().getInt64Ty(), jit.getRuntimeContext().globals->size());
-    auto *globals_ptr = jit.getBuilder().CreateLoad(PointerType::get(array_type, 0), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.Context"), context, 0));
-    auto *global_ptr = jit.getBuilder().CreateGEP(array_type, globals_ptr, { jit.getBuilder().getInt32(0), jit.getBuilder().getInt32(index) });
-    jit.getBuilder().CreateStore(jit.getBuilder().CreateBitCast(value, jit.getBuilder().getInt64Ty()), global_ptr);
+    Value *context = getContextValue(jit);
+    ArrayType *arrayType = ArrayType::get(jit.getBuilder().getInt64Ty(), jit.getRuntimeContext().globals->size());
+    Value *globalsPtr = jit.getBuilder().CreateLoad(PointerType::get(arrayType, 0), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.Context"), context, 0));
+    Value *globalPtr = jit.getBuilder().CreateGEP(arrayType, globalsPtr, { jit.getBuilder().getInt32(0), jit.getBuilder().getInt32(index) });
+    jit.getBuilder().CreateStore(jit.getBuilder().CreateBitCast(value, jit.getBuilder().getInt64Ty()), globalPtr);
 }
 
 Value *loadGlobalValue(JIT& jit, std::size_t index, const Type& type) {
-    auto *context = getContextValue(jit);
-    ArrayType *array_type = ArrayType::get(jit.getBuilder().getInt64Ty(), jit.getRuntimeContext().globals->size());
-    auto *globals_ptr = jit.getBuilder().CreateLoad(PointerType::get(array_type, 0), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.Context"), context, 0));
-    auto *global_ptr = jit.getBuilder().CreateGEP(array_type, globals_ptr, { jit.getBuilder().getInt32(0), jit.getBuilder().getInt32(index) });
-    return jit.getBuilder().CreateLoad(typeToLLVMType(jit, type), global_ptr);
+    Value *context = getContextValue(jit);
+    ArrayType *arrayType = ArrayType::get(jit.getBuilder().getInt64Ty(), jit.getRuntimeContext().globals->size());
+    Value *globalsPtr = jit.getBuilder().CreateLoad(PointerType::get(arrayType, 0), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.Context"), context, 0));
+    Value *globalPtr = jit.getBuilder().CreateGEP(arrayType, globalsPtr, { jit.getBuilder().getInt32(0), jit.getBuilder().getInt32(index) });
+    return jit.getBuilder().CreateLoad(typeToLLVMType(jit, type), globalPtr);
 }
 
-} // namespace abaci::engine
+} // namespace abaci::utility

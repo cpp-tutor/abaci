@@ -1,14 +1,14 @@
 #ifndef Utility_hpp
 #define Utility_hpp
 
-#include "utility/Type.hpp"
-#include "JITfwd.hpp"
+#include "Type.hpp"
+#include "engine/JITfwd.hpp"
 #include <llvm/IR/Value.h>
 #include <llvm/IR/Instructions.h>
 
-namespace abaci::engine {
+namespace abaci::utility {
 
-using abaci::utility::Type;
+using abaci::engine::JIT;
 
 void destroyValue(JIT& jit, llvm::Value *value, const Type& type);
 llvm::Value *getContextValue(JIT& jit);
@@ -20,6 +20,6 @@ llvm::Value *loadMutableValue(JIT& jit, llvm::Value *allocValue, const Type& typ
 void storeGlobalValue(JIT& jit, std::size_t index, llvm::Value *value);
 llvm::Value *loadGlobalValue(JIT& jit, std::size_t index, const Type& type);
 
-} // namespace abaci::engine
+} // namespace abaci::utility
 
 #endif
