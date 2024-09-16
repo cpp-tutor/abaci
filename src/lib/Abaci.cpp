@@ -2,14 +2,21 @@
 #include "utility/Report.hpp"
 #include "localize/Messages.hpp"
 #include "localize/Keywords.hpp"
-#include <fmt/core.h>
-#include <fmt/format.h>
-#include <fmt/ostream.h>
 #include <complex>
 #include <charconv>
 
+#ifdef ABACI_USE_STD_FORMAT
+#include <format>
+#include <print>
+using std::print;
+using std::format;
+#else
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 using fmt::print;
 using fmt::format;
+#endif
 
 namespace abaci::lib {
 
@@ -135,12 +142,12 @@ String *userInput(Context *ctx) {
     return makeString(reinterpret_cast<char8_t*>(str.data()), str.size());
 }
 
-AbaciValue toType(int to_type, AbaciValue value, int from_type) {
+AbaciValue toType(int toType, AbaciValue value, int fromType) {
     AbaciValue result;
     result.integer = 0;
-    switch (to_type) {
+    switch (toType) {
         case AbaciValue::Integer:
-            switch(from_type) {
+            switch(fromType) {
                 case AbaciValue::Boolean:
                     result.integer = value.integer ? 1 : 0;
                     break;
@@ -172,7 +179,7 @@ AbaciValue toType(int to_type, AbaciValue value, int from_type) {
             }
             break;
         case AbaciValue::Floating:
-            switch(from_type) {
+            switch(fromType) {
                 case AbaciValue::Boolean:
                     result.floating = value.integer ? 1.0 : 0.0;
                     break;
@@ -194,7 +201,7 @@ AbaciValue toType(int to_type, AbaciValue value, int from_type) {
             break;
         case AbaciValue::Complex: {
             Complex *object = new Complex{};
-            switch(from_type) {
+            switch(fromType) {
                 case AbaciValue::Integer:
                     object->real = static_cast<double>(value.integer);
                     object->imag = 0.0;
@@ -208,10 +215,10 @@ AbaciValue toType(int to_type, AbaciValue value, int from_type) {
                     object->imag = static_cast<Complex*>(value.object)->imag;
                     break;
                 case AbaciValue::String: {
-                    auto *str_object = reinterpret_cast<String*>(value.object);
-                    auto *str = reinterpret_cast<const char*>(str_object->ptr);
+                    auto *strObject = reinterpret_cast<String*>(value.object);
+                    auto *str = reinterpret_cast<const char*>(strObject->ptr);
                     double d;
-                    auto [ ptr, ec ] = std::from_chars(str, str + str_object->len, d);
+                    auto [ ptr, ec ] = std::from_chars(str, str + strObject->len, d);
                     if (strncmp(ptr, IMAGINARY, strlen(IMAGINARY)) == 0) {
                         object->real = 0;
                         object->imag = d;
@@ -221,7 +228,7 @@ AbaciValue toType(int to_type, AbaciValue value, int from_type) {
                         if (*ptr == '+') {
                             ++ptr;
                         }
-                        std::from_chars(ptr, str + str_object->len, d);
+                        std::from_chars(ptr, str + strObject->len, d);
                         object->imag = d;
                     }
                     else {
@@ -238,7 +245,7 @@ AbaciValue toType(int to_type, AbaciValue value, int from_type) {
         }
         case AbaciValue::String: {
             std::string str;
-            switch (from_type) {
+            switch (fromType) {
                 case AbaciValue::Boolean:
                     str = format("{}", value.integer ? TRUE : FALSE);
                     break;
@@ -266,7 +273,7 @@ AbaciValue toType(int to_type, AbaciValue value, int from_type) {
             break;
         }
         case AbaciValue::Real:
-            switch(from_type) {
+            switch(fromType) {
                 case AbaciValue::Complex:
                     result.floating = static_cast<Complex*>(value.object)->real;
                     break;
@@ -275,7 +282,7 @@ AbaciValue toType(int to_type, AbaciValue value, int from_type) {
             }
             break;
         case AbaciValue::Imag:
-            switch(from_type) {
+            switch(fromType) {
                 case AbaciValue::Complex:
                     result.floating = static_cast<Complex*>(value.object)->imag;
                     break;

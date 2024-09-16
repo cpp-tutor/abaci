@@ -30,38 +30,37 @@ class JIT {
     std::unique_ptr<LLVMContext> context;
     std::unique_ptr<Module> module;
     IRBuilder<> builder;
-    std::string module_name, function_name;
-    Function *current_function{ nullptr };
+    std::string moduleName, functionName;
+    Function *currentFunction{ nullptr };
     Cache *cache;
     Context *runtimeContext;
-    GlobalVariable *global_context;
-    LLJITBuilder jit_builder;
+    GlobalVariable *globalContext;
+    LLJITBuilder jitBuilder;
     llvm::Expected<std::unique_ptr<LLJIT>> jit{ nullptr };
     void initialize();
 public:
-    JIT(const std::string& module_name, const std::string& function_name, Context *runtimeContext, Cache *cache)
+    JIT(const std::string& moduleName, const std::string& functionName, Context *runtimeContext, Cache *cache)
         : context{ std::make_unique<LLVMContext>() },
-        module{ std::make_unique<Module>(module_name, *context) }, builder{ *context },
-        module_name{ module_name }, function_name{ function_name }, cache{ cache },
+        module{ std::make_unique<Module>(moduleName, *context) }, builder{ *context },
+        moduleName{ moduleName }, functionName{ functionName }, cache{ cache },
         runtimeContext{ runtimeContext } {
         initialize();
     }
     auto& getContext() { return *context; }
     auto& getModule() { return *module; }
     auto& getBuilder() { return builder; }
-    auto getFunction() { return current_function; }
+    auto getFunction() { return currentFunction; }
     auto getCache() { return cache; }
     auto& getConstants() { return *(runtimeContext->constants); }
     auto& getRuntimeContext() { return *runtimeContext; }
     StructType *getNamedType(const std::string& name) const {
-        for (auto& type : module->getIdentifiedStructTypes()) {
-            if (type->getName().data() == name) {
-                return type;
-            }
+        StructType *type = StructType::getTypeByName(*context, name);
+        if (!type) {
+            UnexpectedError1(NoType, name);
         }
-        UnexpectedError1(NoType, name);
+        return type;
     }
-    ExecFunctionType getExecFunction(Context *ctx);
+    ExecFunctionType getExecFunction();
 };
 
 } // namespace abaci::engine

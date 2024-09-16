@@ -40,7 +40,7 @@ private:
 };
 
 struct CommentStmt : StmtData {
-    std::string comment_string;
+    std::string commentString;
 };
 
 using PrintList = std::vector<std::variant<ExprNode,Operator>>;
@@ -58,23 +58,22 @@ struct InitStmt : StmtData {
 
 struct AssignStmt : StmtData {
     Variable name;
-    Operator assign;
     ExprNode value;
 };
 
 struct IfStmt : StmtData {
     ExprNode condition;
-    StmtList true_test;
-    StmtList false_test;
+    StmtList trueBlock;
+    StmtList falseBlock;
 };
 
 struct WhileStmt : StmtData {
     ExprNode condition;
-    StmtList loop_block;
+    StmtList loopBlock;
 };
 
 struct RepeatStmt : StmtData {
-    StmtList loop_block;
+    StmtList loopBlock;
     ExprNode condition;
 };
 
@@ -86,7 +85,7 @@ struct WhenStmt {
 struct WhenList : std::vector<WhenStmt>, position_tagged {};
 
 struct CaseStmt : StmtData {
-    ExprNode case_value;
+    ExprNode caseValue;
     WhenList matches;
     StmtList unmatched;
 };
@@ -94,7 +93,7 @@ struct CaseStmt : StmtData {
 struct Function : StmtData {
     std::string name;
     std::vector<Variable> parameters;
-    StmtList function_body;
+    StmtList functionBody;
 };
 
 struct FunctionCall : StmtData {
@@ -111,7 +110,6 @@ struct ReturnStmt : StmtData {
 struct ExprFunction : StmtData {
     std::string name;
     std::vector<Variable> parameters;
-    Operator to;
     ExprNode expression;
 };
 
@@ -125,14 +123,13 @@ struct Class : StmtData {
 
 struct DataAssignStmt : StmtData {
     Variable name;
-    std::vector<Variable> member_list;
-    Operator assign;
+    std::vector<Variable> memberList;
     ExprNode value;
 };
 
 struct MethodCall : StmtData {
     Variable name;
-    std::vector<Variable> member_list;
+    std::vector<Variable> memberList;
     std::string method;
     ExprList args;
 };
@@ -143,22 +140,22 @@ struct ExpressionStmt : StmtData {
 
 } // namespace abaci::ast
 
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::CommentStmt, comment_string)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::CommentStmt, commentString)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::PrintStmt, expression, format)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::InitStmt, name, assign, value)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::AssignStmt, name, assign, value)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::IfStmt, condition, true_test, false_test)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::WhileStmt, condition, loop_block)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::RepeatStmt, loop_block, condition)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::AssignStmt, name, value)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::IfStmt, condition, trueBlock, falseBlock)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::WhileStmt, condition, loopBlock)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::RepeatStmt, loopBlock, condition)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::WhenStmt, expression, block)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::CaseStmt, case_value, matches, unmatched)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Function, name, parameters, function_body)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::CaseStmt, caseValue, matches, unmatched)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Function, name, parameters, functionBody)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::FunctionCall, name, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ReturnStmt, expression)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExprFunction, name, parameters, to, expression)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExprFunction, name, parameters, expression)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Class, name, variables, methods)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataAssignStmt, name, member_list, assign, value)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodCall, name, member_list, method, args)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataAssignStmt, name, memberList, value)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodCall, name, memberList, method, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExpressionStmt, expression)
 
 #endif

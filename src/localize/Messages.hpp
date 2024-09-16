@@ -3,7 +3,6 @@
 
 #define MESSAGE(MSG, STR) inline const char *MSG = reinterpret_cast<const char*>(u8##STR)
 
-
 MESSAGE(InstanceOf, "<Instance of {}>");
 MESSAGE(UnknownType, "Unknown type ({}).");
 MESSAGE(BadOperator, "Unknown operator in this context.");
@@ -19,9 +18,9 @@ MESSAGE(BadChar, "Bad character in function name.");
 MESSAGE(BadType, "Bad type.");
 
 MESSAGE(ClassExists, "Class \'{}\' already exists.");
-MESSAGE(FuncExists, "Function \'{}\' already exists.");
+MESSAGE(FunctionExists, "Function \'{}\' already exists.");
 MESSAGE(WrongArgs, "Wrong number of arguments (have {}, need {}).");
-MESSAGE(FuncNotExist, "Function \'{}\' does not exist.");
+MESSAGE(FunctionNotExist, "Function \'{}\' does not exist.");
 MESSAGE(NoInst, "No such instantiation for function \'{}\'.");
 MESSAGE(ClassNotExist, "Class \'{}\' does not exist.");
 MESSAGE(DataNotExist, "Object does not have data member \'{}\'.");
@@ -31,7 +30,7 @@ MESSAGE(NoType, "Type \'{}\' not found.");
 MESSAGE(NoLLJIT, "Failed to create LLJIT instance.");
 MESSAGE(NoModule, "Failed to add IR module.");
 MESSAGE(NoSymbol, "Failed to add symbols to module.");
-MESSAGE(NoJITFunc, "JIT function not found.");
+MESSAGE(NoJITFunction, "JIT function not found.");
 
 MESSAGE(NoAssignObject, "Cannot assign objects.");
 MESSAGE(CallableNotExist, "No function or class called \'{}\'.");
@@ -51,7 +50,7 @@ MESSAGE(BadStmtNode, "Bad StmtNode type.");
 MESSAGE(ReturnAtEnd, "Return statement must be at end of block.");
 MESSAGE(ObjectType, "Existing object \'{}\' has different type(s).");
 MESSAGE(FuncTopLevel, "Functions must be defined at top-level.");
-MESSAGE(ReturnOnlyInFunc, "Return statement can only appear inside a function.");
+MESSAGE(ReturnOnlyInFunction, "Return statement can only appear inside a function.");
 MESSAGE(FuncTypeSet, "Function return type already set to different type.");
 MESSAGE(NoExpression, "Expression not permitted in this context.");
 
@@ -60,12 +59,15 @@ MESSAGE(InitialPrompt, "Abaci version {}\nEnter code, or \"{}\" to end:\n> ");
 MESSAGE(InputPrompt, "> ");
 MESSAGE(ContinuationPrompt, ". ");
 MESSAGE(SyntaxError, "Unrecognized input.");
-MESSAGE(Version, "0.0.1 (2025-Sep-07)");
+MESSAGE(Version, "0.0.2 (2024-Sep-16)");
 
 MESSAGE(BadVarIndex, "Bad index of variable.");
+MESSAGE(BadTemp, "Bad temporary.");
 MESSAGE(NotImpl, "Not yet implemented.");
 MESSAGE(CompilerInconsistency, "Compiler inconsistency detected: {}");
 MESSAGE(AssertionFailed, "Assertion failed ({})");
 MESSAGE(SourceFile, "\nSource filename: {}");
 MESSAGE(LineNumber, ", Line number: {}");
+MESSAGE(NotRefThis, "Variable \'this\' cannot be used in this way.");
+
 #endif

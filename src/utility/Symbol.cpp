@@ -1,17 +1,13 @@
 #include "Symbol.hpp"
 #include "engine/JIT.hpp"
-#include "engine/Utility.hpp"
+#include "Utility.hpp"
 #include "lib/Abaci.hpp"
 #include "localize/Keywords.hpp"
 #include <limits>
-#include <iostream>
 
 namespace abaci::utility {
 
 using abaci::engine::JIT;
-using abaci::engine::makeMutableValue;
-using abaci::engine::destroyValue;
-using abaci::engine::loadMutableValue;
 using abaci::lib::destroyComplex;
 using abaci::lib::destroyString;
 using abaci::lib::destroyInstance;
@@ -55,18 +51,24 @@ static void deleteValue(AbaciValue value, const Type& type) {
         case AbaciValue::Floating:
             break;
         case AbaciValue::Complex:
-            destroyComplex(reinterpret_cast<Complex*>(value.object));
+            if (reinterpret_cast<void*>(value.object) != nullptr) {
+                destroyComplex(reinterpret_cast<Complex*>(value.object));
+            }
             break;
         case AbaciValue::String:
-            destroyString(reinterpret_cast<String*>(value.object));
+            if (reinterpret_cast<void*>(value.object) != nullptr) {
+                destroyString(reinterpret_cast<String*>(value.object));
+            }
             break;
         case AbaciValue::Instance: {
-            auto *instance = reinterpret_cast<Instance*>(value.object);
-            auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
-            for (std::size_t index = 0; index != instance->variablesCount; ++index) {
-                deleteValue(instance->variables[index], instanceType->variableTypes.at(index));
+            if (reinterpret_cast<void*>(value.object) != nullptr) {
+                auto *instance = reinterpret_cast<Instance*>(value.object);
+                auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
+                for (std::size_t index = 0; index != instance->variablesCount; ++index) {
+                    deleteValue(instance->variables[index], instanceType->variableTypes.at(index));
+                }
+                destroyInstance(instance);
             }
-            destroyInstance(instance);
             break;
         }
         default:
@@ -79,7 +81,7 @@ static void deleteValue(AbaciValue value, const Type& type) {
 }
 
 void GlobalSymbols::deleteAll(AbaciValue* rawArray) const {
-    for (int index = 0; const auto& type : symbols) {
+    for (std::size_t index = 0; const auto& type : symbols) {
         deleteValue(rawArray[index++], type);
     }
 }

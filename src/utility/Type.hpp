@@ -52,7 +52,7 @@ struct TypeInstance : TypeBase {
 
 struct TypeList : TypeBase {
     std::vector<std::size_t> dimensions;
-    Type element_type;
+    Type elementType;
 };
 
 AbaciValue::Type typeToScalar(const Type& type);

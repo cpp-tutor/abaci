@@ -17,9 +17,7 @@ public:
     std::ostream *output, *error;
     Constants *constants;
     GlobalSymbols *globals;
-private:
     RawArray<AbaciValue> rawArray;
-public:
     Context(std::istream& input, std::ostream& output, std::ostream& error, Constants& constants)
         : input{ &input }, output{ &output }, error{ &error }, constants{ &constants },
         globals{ new GlobalSymbols }, rawArray{ &rawGlobals } {}

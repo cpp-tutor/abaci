@@ -3,7 +3,7 @@
 #include "utility/Symbol.hpp"
 #include "utility/Report.hpp"
 #include "localize/Messages.hpp"
-#include "engine/Utility.hpp"
+#include "utility/Utility.hpp"
 #include <llvm/IR/Constants.h>
 
 namespace abaci::codegen {
@@ -21,8 +21,10 @@ using abaci::utility::LocalSymbols;
 using abaci::utility::mangled;
 using abaci::utility::removeConstFromType;
 using abaci::utility::TypeInstance;
-using abaci::engine::loadMutableValue;
-using abaci::engine::loadGlobalValue;
+using abaci::utility::cloneValue;
+using abaci::utility::loadMutableValue;
+using abaci::utility::loadGlobalValue;
+using abaci::utility::getContextValue;
 using abaci::engine::Cache;
 
 template<>
@@ -39,12 +41,18 @@ void ExprCodeGen::codeGen<ExprNode::ValueNode>(const ExprNode& node) const {
         case AbaciValue::Floating:
             push({ ConstantFP::get(builder.getDoubleTy(), constantValue.first.floating), AbaciValue::Floating });
             break;
-        case AbaciValue::Complex:
-            push({ ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), constantValue.first.integer), PointerType::get(jit.getNamedType("struct.Complex"), 0)), AbaciValue::Complex });
+        case AbaciValue::Complex: {
+            Value *value = cloneValue(jit, ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), constantValue.first.integer), PointerType::get(jit.getNamedType("struct.Complex"), 0)), AbaciValue::Complex);
+            temps->addTemporary({ value, AbaciValue::Complex });
+            push({ value, AbaciValue::Complex });
             break;
-        case AbaciValue::String:
-            push({ ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), constantValue.first.integer), PointerType::get(jit.getNamedType("struct.String"), 0)), AbaciValue::String });
+        }
+        case AbaciValue::String: {
+            Value *value = cloneValue(jit, ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), constantValue.first.integer), PointerType::get(jit.getNamedType("struct.String"), 0)), AbaciValue::String);
+            temps->addTemporary({ value, AbaciValue::String });
+            push({ value, AbaciValue::String });
             break;
+        }
         default:
             UnexpectedError0(BadType);
     }
@@ -295,7 +303,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                 push(result);
             }
             else {
-                Value *bool_result = ConstantInt::get(builder.getInt1Ty(), true);
+                Value *boolResult = ConstantInt::get(builder.getInt1Ty(), true);
                 for (auto iter = ++expr.begin(); iter != expr.end();) {
                     auto op = std::get<Operator>(iter++->data);
                     (*this)(*iter++);
@@ -305,28 +313,28 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                         case AbaciValue::Boolean:
                             switch (op) {
                                 case Operator::Equal:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateICmpEQ(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateICmpEQ(result.first, operand.first));
                                     break;
                                 case Operator::NotEqual:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateICmpNE(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateICmpNE(result.first, operand.first));
                                     break;
                                 case Operator::Less:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateICmpULT(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateICmpULT(result.first, operand.first));
                                     break;
                                 case Operator::LessEqual:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateICmpULE(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateICmpULE(result.first, operand.first));
                                     break;
                                 case Operator::GreaterEqual:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateICmpUGE(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateICmpUGE(result.first, operand.first));
                                     break;
                                 case Operator::Greater:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateICmpUGT(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateICmpUGT(result.first, operand.first));
                                     break;
                                 case Operator::And:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateAnd(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateAnd(result.first, operand.first));
                                     break;
                                 case Operator::Or:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateOr(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateOr(result.first, operand.first));
                                     break;
                                 default:
                                     LogicError0(BadOperator);
@@ -335,28 +343,28 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                         case AbaciValue::Integer:
                             switch (op) {
                                 case Operator::Equal:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateICmpEQ(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateICmpEQ(result.first, operand.first));
                                     break;
                                 case Operator::NotEqual:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateICmpNE(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateICmpNE(result.first, operand.first));
                                     break;
                                 case Operator::Less:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateICmpSLT(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateICmpSLT(result.first, operand.first));
                                     break;
                                 case Operator::LessEqual:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateICmpSLE(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateICmpSLE(result.first, operand.first));
                                     break;
                                 case Operator::GreaterEqual:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateICmpSGE(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateICmpSGE(result.first, operand.first));
                                     break;
                                 case Operator::Greater:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateICmpSGT(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateICmpSGT(result.first, operand.first));
                                     break;
                                 case Operator::And:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateAnd(toBoolean(result), toBoolean(operand)));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateAnd(toBoolean(result), toBoolean(operand)));
                                     break;
                                 case Operator::Or:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateOr(toBoolean(result), toBoolean(operand)));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateOr(toBoolean(result), toBoolean(operand)));
                                     break;
                                 default:
                                     LogicError0(BadOperator);
@@ -365,46 +373,46 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                         case AbaciValue::Floating:
                             switch (op) {
                                 case Operator::Equal:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateFCmpOEQ(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateFCmpOEQ(result.first, operand.first));
                                     break;
                                 case Operator::NotEqual:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateFCmpONE(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateFCmpONE(result.first, operand.first));
                                     break;
                                 case Operator::Less:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateFCmpOLT(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateFCmpOLT(result.first, operand.first));
                                     break;
                                 case Operator::LessEqual:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateFCmpOLE(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateFCmpOLE(result.first, operand.first));
                                     break;
                                 case Operator::GreaterEqual:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateFCmpOGE(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateFCmpOGE(result.first, operand.first));
                                     break;
                                 case Operator::Greater:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateFCmpOGT(result.first, operand.first));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateFCmpOGT(result.first, operand.first));
                                     break;
                                 case Operator::And:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateAnd(toBoolean(result), toBoolean(operand)));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateAnd(toBoolean(result), toBoolean(operand)));
                                     break;
                                 case Operator::Or:
-                                    bool_result = builder.CreateAnd(bool_result, builder.CreateOr(toBoolean(result), toBoolean(operand)));
+                                    boolResult = builder.CreateAnd(boolResult, builder.CreateOr(toBoolean(result), toBoolean(operand)));
                                     break;
                                 default:
                                     LogicError0(BadOperator);
                             }
                             break;
                         case AbaciValue::Complex: {
-                            Value *real_value1 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), result.first, 0));
-                            Value *imag_value1 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), result.first, 1));
-                            Value *real_value2 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), operand.first, 0));
-                            Value *imag_value2 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), operand.first, 1));
+                            Value *realValue1 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), result.first, 0));
+                            Value *imagValue1 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), result.first, 1));
+                            Value *realValue2 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), operand.first, 0));
+                            Value *imagValue2 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), operand.first, 1));
                             switch (op) {
                                 case Operator::Equal:
-                                    bool_result = builder.CreateAnd(bool_result,
-                                        builder.CreateAnd(builder.CreateFCmpOEQ(real_value1, real_value2), builder.CreateFCmpOEQ(imag_value1, imag_value2)));
+                                    boolResult = builder.CreateAnd(boolResult,
+                                        builder.CreateAnd(builder.CreateFCmpOEQ(realValue1, realValue2), builder.CreateFCmpOEQ(imagValue1, imagValue2)));
                                     break;
                                 case Operator::NotEqual:
-                                    bool_result = builder.CreateAnd(bool_result,
-                                        builder.CreateOr(builder.CreateFCmpONE(real_value1, real_value2), builder.CreateFCmpONE(imag_value1, imag_value2)));
+                                    boolResult = builder.CreateAnd(boolResult,
+                                        builder.CreateOr(builder.CreateFCmpONE(realValue1, realValue2), builder.CreateFCmpONE(imagValue1, imagValue2)));
                                     break;
                                 default:
                                     LogicError0(BadOperator);
@@ -412,18 +420,18 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                             break;
                         }
                         case AbaciValue::String: {
-                            Value *str1_ptr = builder.CreateLoad(builder.getInt8PtrTy(), builder.CreateStructGEP(jit.getNamedType("struct.String"), result.first, 0));
-                            Value *str2_ptr = builder.CreateLoad(builder.getInt8PtrTy(), builder.CreateStructGEP(jit.getNamedType("struct.String"), operand.first, 0));
+                            Value *str1Ptr = builder.CreateLoad(PointerType::get(builder.getInt8Ty(), 0), builder.CreateStructGEP(jit.getNamedType("struct.String"), result.first, 0));
+                            Value *str2Ptr = builder.CreateLoad(PointerType::get(builder.getInt8Ty(), 0), builder.CreateStructGEP(jit.getNamedType("struct.String"), operand.first, 0));
                             switch (op) {
                                 case Operator::Equal:
-                                    bool_result = builder.CreateAnd(bool_result,
+                                    boolResult = builder.CreateAnd(boolResult,
                                         builder.CreateICmpEQ(ConstantInt::get(builder.getInt32Ty(), 0),
-                                        builder.CreateCall(module.getFunction("compareString"), { str1_ptr, str2_ptr })));
+                                        builder.CreateCall(module.getFunction("compareString"), { str1Ptr, str2Ptr })));
                                     break;
                                 case Operator::NotEqual:
-                                    bool_result = builder.CreateAnd(bool_result,
+                                    boolResult = builder.CreateAnd(boolResult,
                                         builder.CreateICmpNE(ConstantInt::get(builder.getInt32Ty(), 0),
-                                        builder.CreateCall(module.getFunction("compareString"), { str1_ptr, str2_ptr })));
+                                        builder.CreateCall(module.getFunction("compareString"), { str1Ptr, str2Ptr })));
                                     break;
                                 default:
                                     LogicError0(BadOperator);
@@ -437,7 +445,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                     result.first = operand.first;
                     result.second = type;
                 }
-                result.first = bool_result;
+                result.first = boolResult;
                 result.second = AbaciValue::Boolean;
                 push(result);
             }
@@ -454,16 +462,20 @@ void ExprCodeGen::codeGen<ExprNode::VariableNode>(const ExprNode& node) const {
     if (locals) {
         auto [ vars, index ] = locals->getIndex(name);
         if (index != LocalSymbols::noVariable) {
-            auto *value = loadMutableValue(jit, vars->getValue(index), vars->getType(index));
-            push({ value, removeConstFromType(vars->getType(index)) });
+            auto type = removeConstFromType(vars->getType(index));
+            Value *value = cloneValue(jit, loadMutableValue(jit, vars->getValue(index), type), type);
+            temps->addTemporary({ value, type });
+            push({ value, type });
             return;
         }
     }
     auto globals = jit.getRuntimeContext().globals;
     auto globalIndex = globals->getIndex(name);
     if (globalIndex != GlobalSymbols::noVariable) {
-        auto *value = loadGlobalValue(jit, globalIndex, globals->getType(globalIndex));
-        push({ value, removeConstFromType(globals->getType(globalIndex)) });
+        auto type = removeConstFromType(globals->getType(globalIndex));
+        Value *value = cloneValue(jit, loadGlobalValue(jit, globalIndex, type), type);
+        temps->addTemporary({ value, type });
+        push({ value, type });
     }
     else {
         UnexpectedError1(VarNotExist, name);
@@ -498,13 +510,15 @@ void ExprCodeGen::codeGen<ExprNode::FunctionNode>(const ExprNode& node) const {
             Value *instance = builder.CreateCall(module.getFunction("makeInstance"), { className, variablesCount });
             ArrayType *array = ArrayType::get(builder.getInt64Ty(), call.args.size());
             Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.Instance"), instance, 2));
-            for (int index = 0; const auto& value : call.args) {
+            for (std::size_t index = 0; const auto& value : call.args) {
                 ExprCodeGen expr(jit, locals, temps);
                 expr(value);
                 auto result = expr.get();
                 Value *ptr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
                 builder.CreateStore(builder.CreateBitCast(result.first, builder.getInt64Ty()), ptr);
-                temps->removeTemporary(result.first);
+                if (temps->isTemporary(result.first)) {
+                    temps->removeTemporary(result.first);
+                }
                 ++index;
             }
             auto instanceType = std::make_shared<TypeInstance>();
@@ -527,8 +541,8 @@ void ExprCodeGen::codeGen<ExprNode::DataMemberNode>(const ExprNode& node) const 
         auto [ vars, index ] = locals->getIndex(name);
         if (index != LocalSymbols::noVariable) {
             type = vars->getType(index);
-            auto *value = loadMutableValue(jit, vars->getValue(index), type);
-            for (const auto& member : data.member_list) {
+            Value *value = loadMutableValue(jit, vars->getValue(index), type);
+            for (const auto& member : data.memberList) {
                 if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                     UnexpectedError0(BadObject);
                 }
@@ -541,16 +555,19 @@ void ExprCodeGen::codeGen<ExprNode::DataMemberNode>(const ExprNode& node) const 
                 Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
                 value = builder.CreateLoad(typeToLLVMType(jit, type), valuePtr);
             }
-            push({ value, removeConstFromType(type) });
+            auto stackType = removeConstFromType(type);
+            Value *stackValue = cloneValue(jit, value, type);
+            temps->addTemporary({ stackValue, stackType });
+            push({ stackValue, stackType });
             return;
         }
     }
     auto globals = jit.getRuntimeContext().globals;
     auto globalIndex = globals->getIndex(name);
     if (globalIndex != GlobalSymbols::noVariable) {
-        auto *value = loadGlobalValue(jit, globalIndex, globals->getType(globalIndex));
+        Value *value = loadGlobalValue(jit, globalIndex, globals->getType(globalIndex));
         type = globals->getType(globalIndex);
-        for (const auto& member : data.member_list) {
+        for (const auto& member : data.memberList) {
             if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                 UnexpectedError0(BadObject);
             }
@@ -563,7 +580,10 @@ void ExprCodeGen::codeGen<ExprNode::DataMemberNode>(const ExprNode& node) const 
             Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
             value = builder.CreateLoad(typeToLLVMType(jit, type), valuePtr);
         }
-        push({ value, removeConstFromType(type) });
+        auto stackType = removeConstFromType(type);
+        Value *stackValue = cloneValue(jit, value, type);
+        temps->addTemporary({ stackValue, stackType });
+        push({ stackValue, stackType });
     }
     else {
         UnexpectedError1(VarNotExist, name);
@@ -572,16 +592,16 @@ void ExprCodeGen::codeGen<ExprNode::DataMemberNode>(const ExprNode& node) const 
 
 template<>
 void ExprCodeGen::codeGen<ExprNode::MethodNode>(const ExprNode& node) const {
-    const auto& method_call = std::get<ExprNode::MethodNode>(node.data);
-    const std::string& name = method_call.name.get();
+    const auto& methodCall = std::get<ExprNode::MethodNode>(node.data);
+    const std::string& name = methodCall.name.get();
     Type type;
     Value *thisPtr = nullptr;
     if (locals) {
         auto [ vars, index ] = locals->getIndex(name);
         if (index != LocalSymbols::noVariable) {
             type = vars->getType(index);
-            auto *value = loadMutableValue(jit, vars->getValue(index), type);
-            for (const auto& member : method_call.member_list) {
+            Value *value = loadMutableValue(jit, vars->getValue(index), type);
+            for (const auto& member : methodCall.memberList) {
                 if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                     UnexpectedError0(BadObject);
                 }
@@ -600,9 +620,9 @@ void ExprCodeGen::codeGen<ExprNode::MethodNode>(const ExprNode& node) const {
     auto globals = jit.getRuntimeContext().globals;
     auto globalIndex = globals->getIndex(name);
     if (globalIndex != GlobalSymbols::noVariable) {
-        auto *value = loadGlobalValue(jit, globalIndex, globals->getType(globalIndex));
+        Value *value = loadGlobalValue(jit, globalIndex, globals->getType(globalIndex));
         type = globals->getType(globalIndex);
-        for (const auto& member : method_call.member_list) {
+        for (const auto& member : methodCall.memberList) {
             if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                 UnexpectedError0(BadObject);
             }
@@ -620,21 +640,22 @@ void ExprCodeGen::codeGen<ExprNode::MethodNode>(const ExprNode& node) const {
     if (thisPtr != nullptr) {
         auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
         Assert(instanceType != nullptr);
-        std::string method_name = instanceType->className + '.' + method_call.method;
+        std::string methodName = instanceType->className + '.' + methodCall.method;
         std::vector<Value*> arguments;
         std::vector<Type> types;
-        for (const auto& arg : method_call.args) {
+        for (const auto& arg : methodCall.args) {
             ExprCodeGen expr(jit, locals, temps);
             expr(arg);
             auto result = expr.get();
             arguments.push_back(result.first);
             types.push_back(result.second);
         }
+        types.insert(types.begin(), instanceType);
         arguments.insert(arguments.begin(), thisPtr);
-        auto return_type = jit.getCache()->getFunctionInstantiationType(method_name, types);
-        auto result = builder.CreateCall(module.getFunction(mangled(method_name, types)), arguments);
-        temps->addTemporary({ result, return_type });
-        push({ result, return_type });
+        auto returnType = jit.getCache()->getFunctionInstantiationType(methodName, types);
+        auto result = builder.CreateCall(module.getFunction(mangled(methodName, types)), arguments);
+        temps->addTemporary({ result, returnType });
+        push({ result, returnType });
     }
     else {
         UnexpectedError0(BadObject);
@@ -650,23 +671,23 @@ void ExprCodeGen::codeGen<ExprNode::InputNode>([[maybe_unused]] const ExprNode& 
 
 template<>
 void ExprCodeGen::codeGen<ExprNode::TypeConvNode>(const ExprNode& node) const {
-    const auto& type_conversion = std::get<ExprNode::TypeConvNode>(node.data);
+    const auto& typeConversion = std::get<ExprNode::TypeConvNode>(node.data);
     ExprCodeGen expr(jit, locals, temps);
-    expr(*(type_conversion.expression));
+    expr(*(typeConversion.expression));
     auto result = expr.get();
-    auto target_type = type_conversion.to_type;
-    if (typeToScalar(target_type) == AbaciValue::Real || typeToScalar(target_type) == AbaciValue::Imag) {
-        target_type = AbaciValue::Floating;
+    auto targetType = typeConversion.toType;
+    if (typeToScalar(targetType) == AbaciValue::Real || typeToScalar(targetType) == AbaciValue::Imag) {
+        targetType = AbaciValue::Floating;
     }
     Value *conversion = builder.CreateBitCast(
         builder.CreateCall(module.getFunction("toType"), {
-            builder.getInt32(static_cast<int>(typeToScalar(type_conversion.to_type))),
+            builder.getInt32(static_cast<int>(typeToScalar(typeConversion.toType))),
             builder.CreateBitCast(result.first, builder.getInt64Ty()),
             builder.getInt32(static_cast<int>(typeToScalar(result.second)))
         }),
-        typeToLLVMType(jit, target_type));
-    temps->addTemporary({ conversion, target_type });
-    push({ conversion, target_type });
+        typeToLLVMType(jit, targetType));
+    temps->addTemporary({ conversion, targetType });
+    push({ conversion, targetType });
 }
 
 void ExprCodeGen::operator()(const ExprNode& node) const {

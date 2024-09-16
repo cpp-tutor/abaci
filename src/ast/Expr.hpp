@@ -32,12 +32,12 @@ struct FunctionValueCall : position_tagged {
 
 struct DataMember : position_tagged {
     Variable name;
-    std::vector<Variable> member_list;
+    std::vector<Variable> memberList;
 };
 
 struct MethodValueCall : position_tagged {
     Variable name;
-    std::vector<Variable> member_list;
+    std::vector<Variable> memberList;
     std::string method;
     ExprList args;
 };
@@ -47,7 +47,7 @@ struct UserInput {
 };
 
 struct TypeConv {
-    AbaciValue::Type to_type;
+    AbaciValue::Type toType;
     std::shared_ptr<ExprNode> expression;
 };
 
@@ -59,7 +59,7 @@ public:
 };
 
 struct TypeConvItems {
-    std::string to_type;
+    std::string toType;
     ExprNode expression;
 };
 
@@ -67,9 +67,9 @@ struct TypeConvItems {
 
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExprNode, data)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::FunctionValueCall, name, args)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataMember, name, member_list)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodValueCall, name, member_list, method, args)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataMember, name, memberList)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodValueCall, name, memberList, method, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::UserInput, dummy)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::TypeConvItems, to_type, expression)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::TypeConvItems, toType, expression)
 
 #endif

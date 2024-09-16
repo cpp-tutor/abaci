@@ -8,39 +8,49 @@
 #include "localize/Keywords.hpp"
 #include "localize/Messages.hpp"
 #include "utility/Temporary.hpp"
+#include <fstream>
+#include <string>
+#include <iostream>
+
+#ifdef ABACI_USE_STD_FORMAT
+#include <format>
+#include <print>
+using std::print;
+using std::vformat;
+#else
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
-#include <iostream>
-#include <fstream>
-#include <string>
 using fmt::print;
 using fmt::runtime;
+#endif
 
 int main(const int argc, const char **argv) {
     if (argc == 2) {
-        std::ifstream input_file{ argv[1] };
-        if (input_file) {
-            std::string input_text;
-            std::getline(input_file, input_text, '\0');
+        std::ifstream inputFile{ argv[1] };
+        if (inputFile) {
+            std::string inputText;
+            std::getline(inputFile, inputText, '\0');
             abaci::ast::StmtList ast;
             abaci::utility::Constants constants;
             abaci::utility::Context context(std::cin, std::cout, std::cerr, constants);
             abaci::engine::Cache functions;
             abaci::utility::Temporaries temps;
             try {
-                if (abaci::parser::parse_block(input_text, ast, *(context.error), &constants)) {
-                    abaci::codegen::TypeCodeGen type_code_gen(&context, &functions);
+                if (abaci::parser::parseBlock(inputText, ast, *(context.error), &constants)) {
+                    abaci::codegen::TypeCodeGen typeGen(&context, &functions);
                     for (const auto& stmt : ast) {
-                        type_code_gen(stmt);
+                        typeGen(stmt);
                     }
                     abaci::engine::JIT jit("Abaci", "program", &context, &functions);
-                    abaci::codegen::StmtCodeGen code_gen(jit, &temps);
+                    abaci::codegen::StmtCodeGen codeGen(jit, &temps);
                     for (const auto& stmt : ast) {
-                        code_gen(stmt);
+                        codeGen(stmt);
+                        temps.destroyTemporaries(jit);
+                        temps.clear();
                     }
-                    auto programFunc = jit.getExecFunction(&context);
-                    programFunc();
+                    auto programFunction = jit.getExecFunction();
+                    programFunction();
                     return 0;
                 }
                 else {
@@ -54,47 +64,52 @@ int main(const int argc, const char **argv) {
         }
     }
     std::string input;
+#ifdef ABACI_USE_STD_FORMAT
+    std::cout << vformat(InitialPrompt, make_format_args(Version, EXIT));
+#else
     print(std::cout, runtime(InitialPrompt), Version, EXIT);
+#endif
     std::getline(std::cin, input);
 
     abaci::ast::StmtNode ast;
     abaci::utility::Constants constants;
     abaci::utility::Context context(std::cin, std::cout, std::cerr, constants);
     abaci::engine::Cache functions;
-    while (!input.ends_with(EXIT)) {
-        std::string more_input = "\n";
-        while (!abaci::parser::test_statement(input) && !more_input.empty()) {
+    while (!std::cin.eof() && !input.ends_with(EXIT)) {
+        std::string moreInput = "\n";
+        while (!std::cin.eof() && !abaci::parser::testStatement(input) && !moreInput.empty()) {
             print(std::cout, "{}", ContinuationPrompt);
-            std::getline(std::cin, more_input);
-            input += '\n' + more_input;
+            std::getline(std::cin, moreInput);
+            input += '\n' + moreInput;
         }
-        if (abaci::parser::test_statement(input)) {
-            while (!input.empty() && abaci::parser::parse_statement(input, ast, *(context.error), &constants)) {
+        if (abaci::parser::testStatement(input)) {
+            while (!input.empty() && abaci::parser::parseStatement(input, ast, *(context.error), &constants)) {
                 try {
-                    abaci::codegen::TypeCodeGen type_code_gen(&context, &functions);
-                    type_code_gen(ast);
+                    abaci::codegen::TypeCodeGen typeGen(&context, &functions);
+                    typeGen(ast);
                     abaci::engine::JIT jit("Abaci", "program", &context, &functions);
                     abaci::utility::Temporaries temps;
-                    abaci::codegen::StmtCodeGen code_gen(jit, &temps);
-                    code_gen(ast);
-                    temps.deleteTemporaries(jit);
-                    auto stmtFunc = jit.getExecFunction(&context);
-                    stmtFunc();
+                    abaci::codegen::StmtCodeGen codeGen(jit, &temps);
+                    codeGen(ast);
+                    temps.destroyTemporaries(jit);
+                    temps.clear();
+                    auto stmtFunction = jit.getExecFunction();
+                    stmtFunction();
                 }
                 catch (std::exception& error) {
                     print(std::cout, "{}\n", error.what());
                 }
             }
-            more_input = input;
+            moreInput = input;
         }
         else {
             print(std::cout, "{}\n", SyntaxError);
-            more_input.clear();
+            moreInput.clear();
         }
-        print(std::cout, "{}", more_input.empty() ? InputPrompt : ContinuationPrompt);
+        print(std::cout, "{}", moreInput.empty() ? InputPrompt : ContinuationPrompt);
         std::getline(std::cin, input);
-        if (!more_input.empty()) {
-            input = more_input + '\n' + input;
+        if (!moreInput.empty()) {
+            input = moreInput + '\n' + input;
         }
     }
     return 0;

@@ -8,17 +8,16 @@ Abaci is a JIT-compiled interactive scripting language based on the LLVM toolcha
 
 To build this project requires:
 
-* A C++ compiler, tested only with `g++` version 12.2.0 and `clang++` version 14.0.6 (*note: Clang build is currently broken*)
+* A C++ compiler, tested only with `g++` version 12.2.0, Visual Studio 2022 C++ and `clang++` version 14.0.6 (*note: Clang build is currently broken*)
 * The LLVM development libraries, built against version 14.0
 * The Boost headers, specifically Boost Spirit X3 in Boost 1.74
 * Headers and link-library of `libfmt`, built against version 10.2.1
-* Python version 3, tested with version 3.11.2
 
 This project was developed using Debian current stable (Bookworm).
 
 ## Building
 
-To create the executable `abaci` in a `build` sub-directory of the project source files:
+To create the executable `abaci` in a `build` sub-directory of the project source files under Linux use:
 
 ```bash
 mkdir build && cd build
@@ -26,13 +25,23 @@ cmake ..
 make
 ```
 
+To build against C++23's `<format>` and `<print>` headers (if available) instead of libfmt, use `make -DABACI_USE_STD_FORMAT=1`/
+
 Run `./abaci` without arguments to enter an interactive session, or with a source filename as the single argument to execute a script.
+
+To create the executable `abaci.exe` under Windows, using CMake and VS2022, first build LLVM from source. Then make a `build` directory at the same level as `src` and issue:
+
+```bash
+"C:\Program Files\CMake\bin\cmake.exe" .. -A x64 -Thost=x64 -DLLVM_DIR=C:\Users\<username>\llvm-19.1.0\lib\cmake\llvm -DCMAKE_CXX_FLAGS="/IC:\Users\<username>\boost_1_85_0 /std:c++latest /EHsc /DABACI_USE_STD_FORMAT=1"
+```
+
+(Replace `<username>` in each case with the correct path to LLVM and Boost.)
 
 ## Status
 
 This project is currently under heavy development and should be considered pre-alpha. Current plans for features to be added include:
 
-* Broken parsing for method calls to be investigated
+* Broken parsing for method calls to be investigated *(completed)*
 * Homogenous lists (possibly multi-dimensional)
 * String indexing
 * Closures (major changes are likely needed)
@@ -178,6 +187,8 @@ endclass
 ## Version history
 
 * **0.0.1** (2024-Sep-07): First release of code for this project, many known bugs and problems
+
+* **0.0.2** (2024-Sep-16): Second release with many changes and fixes, no known bugs
 
 ## License
 

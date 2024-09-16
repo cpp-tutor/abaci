@@ -3,7 +3,7 @@
 #include "utility/Operator.hpp"
 #include "localize/Keywords.hpp"
 #include "localize/Messages.hpp"
-#include "engine/Utility.hpp"
+#include "utility/Utility.hpp"
 #include <llvm/IR/Constants.h>
 
 using namespace llvm;
@@ -40,11 +40,11 @@ using abaci::utility::addConstToType;
 using abaci::utility::isConstant;
 using abaci::utility::TypeInstance;
 using abaci::utility::TypeBase;
-using abaci::engine::getContextValue;
-using abaci::engine::storeMutableValue;
-using abaci::engine::storeGlobalValue;
+using abaci::utility::getContextValue;
+using abaci::utility::storeMutableValue;
+using abaci::utility::storeGlobalValue;
 
-void StmtCodeGen::operator()(const StmtList& stmts, BasicBlock *exit_block) const {
+void StmtCodeGen::operator()(const StmtList& stmts, BasicBlock *exitBlock) const {
     if (!stmts.empty()) {
         locals = const_cast<LocalSymbols*>(static_cast<const LocalSymbols*>(&stmts));
         locals->makeVariables(jit);
@@ -54,18 +54,18 @@ void StmtCodeGen::operator()(const StmtList& stmts, BasicBlock *exit_block) cons
             (*this)(stmt);
         }
         if (!dynamic_cast<const ReturnStmt*>(stmts.back().get())) {
-            temps->deleteTemporaries(jit);
+            temps->destroyTemporaries(jit);
             locals->destroyVariables(jit);
-            if (exit_block) {
-                builder.CreateBr(exit_block);
+            if (exitBlock) {
+                builder.CreateBr(exitBlock);
             }
         }
         temps->clear();
         locals->clear();
     }   
     else {
-        if (exit_block) {
-            builder.CreateBr(exit_block);
+        if (exitBlock) {
+            builder.CreateBr(exitBlock);
         }
     }
 }
@@ -76,10 +76,10 @@ void StmtCodeGen::codeGen([[maybe_unused]] const CommentStmt& comment) const {
 
 template<>
 void StmtCodeGen::codeGen(const PrintStmt& print) const {
-    PrintList print_data{ print.expression };
-    print_data.insert(print_data.end(), print.format.begin(), print.format.end());
+    PrintList printData{ print.expression };
+    printData.insert(printData.end(), print.format.begin(), print.format.end());
     Value *context = getContextValue(jit);
-    for (auto field : print_data) {
+    for (auto field : printData) {
         switch (field.index()) {
             case 0: {
                 ExprCodeGen expr(jit, locals, temps);
@@ -125,8 +125,8 @@ void StmtCodeGen::codeGen(const PrintStmt& print) const {
                 break;
         }
     }
-    if (!print_data.empty() && print_data.back().index() == 1) {
-        if (std::get<Operator>(print_data.back()) != Operator::SemiColon && std::get<Operator>(print_data.back()) != Operator::Comma) {
+    if (!printData.empty() && printData.back().index() == 1) {
+        if (std::get<Operator>(printData.back()) != Operator::SemiColon && std::get<Operator>(printData.back()) != Operator::Comma) {
             builder.CreateCall(module.getFunction("printLn"), { context });
         }
     }
@@ -192,13 +192,13 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
             UnexpectedError1(NoConstantAssign, assign.name.get());
         }
         Assert(vars->getType(index) == result.second);
-        destroyValue(jit, loadMutableValue(jit, locals->getValue(index), result.second), result.second);
+        destroyValue(jit, loadMutableValue(jit, vars->getValue(index), result.second), result.second);
         if (temps->isTemporary(result.first)) {
             temps->removeTemporary(result.first);
-            storeMutableValue(jit, locals->getValue(index), result.first);
+            storeMutableValue(jit, vars->getValue(index), result.first);
         }
         else {
-            storeMutableValue(jit, locals->getValue(index), cloneValue(jit, result.first, result.second));
+            storeMutableValue(jit, vars->getValue(index), cloneValue(jit, result.first, result.second));
         }
     }
     else {
@@ -223,9 +223,9 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
 }
 
 template<>
-void StmtCodeGen::codeGen(const IfStmt& if_stmt) const {
+void StmtCodeGen::codeGen(const IfStmt& ifStmt) const {
     ExprCodeGen expr(jit, locals, temps);
-    expr(if_stmt.condition);
+    expr(ifStmt.condition);
     auto result = expr.get();
     Value *condition;
     if (typeToScalar(result.second) == AbaciValue::Boolean) {
@@ -234,26 +234,26 @@ void StmtCodeGen::codeGen(const IfStmt& if_stmt) const {
     else {
         condition = expr.toBoolean(result);
     }
-    BasicBlock *true_block = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
-    BasicBlock *false_block = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
-    BasicBlock *merge_block = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
-    builder.CreateCondBr(condition, true_block, false_block);
-    builder.SetInsertPoint(true_block);
-    (*this)(if_stmt.true_test, merge_block);
-    builder.SetInsertPoint(false_block);
-    (*this)(if_stmt.false_test, merge_block);
-    builder.SetInsertPoint(merge_block);
+    BasicBlock *trueBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+    BasicBlock *falseBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+    BasicBlock *mergeBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+    builder.CreateCondBr(condition, trueBlock, falseBlock);
+    builder.SetInsertPoint(trueBlock);
+    (*this)(ifStmt.trueBlock, mergeBlock);
+    builder.SetInsertPoint(falseBlock);
+    (*this)(ifStmt.falseBlock, mergeBlock);
+    builder.SetInsertPoint(mergeBlock);
 }
 
 template<>
-void StmtCodeGen::codeGen(const WhileStmt& while_stmt) const {
-    BasicBlock *pre_block = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
-    BasicBlock *loop_block = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
-    BasicBlock *post_block = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
-    builder.CreateBr(pre_block);
-    builder.SetInsertPoint(pre_block);
+void StmtCodeGen::codeGen(const WhileStmt& whileStmt) const {
+    BasicBlock *preBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+    BasicBlock *loopBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+    BasicBlock *postBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+    builder.CreateBr(preBlock);
+    builder.SetInsertPoint(preBlock);
     ExprCodeGen expr(jit, locals, temps);
-    expr(while_stmt.condition);
+    expr(whileStmt.condition);
     auto result = expr.get();
     Value *condition;
     if (typeToScalar(result.second) == AbaciValue::Boolean) {
@@ -262,20 +262,20 @@ void StmtCodeGen::codeGen(const WhileStmt& while_stmt) const {
     else {
         condition = expr.toBoolean(result);
     }
-    builder.CreateCondBr(condition, loop_block, post_block);
-    builder.SetInsertPoint(loop_block);
-    (*this)(while_stmt.loop_block);
-    builder.CreateBr(pre_block);
-    builder.SetInsertPoint(post_block);
+    builder.CreateCondBr(condition, loopBlock, postBlock);
+    builder.SetInsertPoint(loopBlock);
+    (*this)(whileStmt.loopBlock);
+    builder.CreateBr(preBlock);
+    builder.SetInsertPoint(postBlock);
 }
 
 template<>
 void StmtCodeGen::codeGen(const RepeatStmt& repeat_stmt) const {
-    BasicBlock *loop_block = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
-    BasicBlock *post_block = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
-    builder.CreateBr(loop_block);
-    builder.SetInsertPoint(loop_block);
-    (*this)(repeat_stmt.loop_block);
+    BasicBlock *loopBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+    BasicBlock *postBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+    builder.CreateBr(loopBlock);
+    builder.SetInsertPoint(loopBlock);
+    (*this)(repeat_stmt.loopBlock);
     ExprCodeGen expr(jit, locals, temps);
     expr(repeat_stmt.condition);
     auto result = expr.get();
@@ -286,59 +286,59 @@ void StmtCodeGen::codeGen(const RepeatStmt& repeat_stmt) const {
     else {
         condition = expr.toBoolean(result);
     }
-    builder.CreateCondBr(condition, post_block, loop_block);
-    builder.SetInsertPoint(post_block);
+    builder.CreateCondBr(condition, postBlock, loopBlock);
+    builder.SetInsertPoint(postBlock);
 }
 
 template<>
-void StmtCodeGen::codeGen(const CaseStmt& case_stmt) const {
-    std::vector<BasicBlock*> case_blocks(case_stmt.matches.size() * 2 + 1 + !case_stmt.unmatched.empty());
-    for (auto& block : case_blocks) {
+void StmtCodeGen::codeGen(const CaseStmt& caseStmt) const {
+    std::vector<BasicBlock*> caseBlocks(caseStmt.matches.size() * 2 + 1 + !caseStmt.unmatched.empty());
+    for (auto& block : caseBlocks) {
         block = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
     }
     ExprCodeGen expr(jit, locals, temps);
-    expr(case_stmt.case_value);
+    expr(caseStmt.caseValue);
     auto result = expr.get();
-    builder.CreateBr(case_blocks.front());
-    for (int block_number = 0; const auto& when : case_stmt.matches) {
-        builder.SetInsertPoint(case_blocks.at(block_number * 2));
-        auto match_result = result;
+    builder.CreateBr(caseBlocks.front());
+    for (std::size_t blockNumber = 0; const auto& when : caseStmt.matches) {
+        builder.SetInsertPoint(caseBlocks.at(blockNumber * 2));
+        auto matchResult = result;
         ExprCodeGen expr(jit, locals, temps);
         expr(when.expression);
-        auto when_result = expr.get();
-        Value *is_match;
-        switch (expr.promote(when_result, match_result)) {
+        auto whenResult = expr.get();
+        Value *isMatch;
+        switch (expr.promote(whenResult, matchResult)) {
             case AbaciValue::Boolean:
             case AbaciValue::Integer:
-                is_match = builder.CreateICmpEQ(when_result.first, match_result.first);
+                isMatch = builder.CreateICmpEQ(whenResult.first, matchResult.first);
                 break;
             case AbaciValue::Floating:
-                is_match = builder.CreateFCmpOEQ(when_result.first, match_result.first);
+                isMatch = builder.CreateFCmpOEQ(whenResult.first, matchResult.first);
                 break;
             case AbaciValue::Complex: {
-                Value *real_value1 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), when_result.first, 0));
-                Value *imag_value1 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), when_result.first, 1));
-                Value *real_value2 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), match_result.first, 0));
-                Value *imag_value2 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), match_result.first, 1));
-                is_match = builder.CreateAnd(builder.CreateFCmpOEQ(real_value1, real_value2), builder.CreateFCmpOEQ(imag_value1, imag_value2));
+                Value *realValue1 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), whenResult.first, 0));
+                Value *imagValue1 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), whenResult.first, 1));
+                Value *realValue2 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), matchResult.first, 0));
+                Value *imagValue2 = builder.CreateLoad(builder.getDoubleTy(), builder.CreateStructGEP(jit.getNamedType("struct.Complex"), matchResult.first, 1));
+                isMatch = builder.CreateAnd(builder.CreateFCmpOEQ(realValue1, realValue2), builder.CreateFCmpOEQ(imagValue1, imagValue2));
                 break;
             }
             case AbaciValue::String:
-                is_match = builder.CreateCall(module.getFunction("compareString"), { when_result.first, match_result.first });
+                isMatch = builder.CreateCall(module.getFunction("compareString"), { whenResult.first, matchResult.first });
                 break;
             default:
                 LogicError0(BadType);
         }
-        builder.CreateCondBr(is_match, case_blocks.at(block_number * 2 + 1), case_blocks.at(block_number * 2 + 2));
-        builder.SetInsertPoint(case_blocks.at(block_number * 2 + 1));
-        (*this)(when.block, case_blocks.back());
-        ++block_number;
+        builder.CreateCondBr(isMatch, caseBlocks.at(blockNumber * 2 + 1), caseBlocks.at(blockNumber * 2 + 2));
+        builder.SetInsertPoint(caseBlocks.at(blockNumber * 2 + 1));
+        (*this)(when.block, caseBlocks.back());
+        ++blockNumber;
     }
-    if (!case_stmt.unmatched.empty()) {
-        builder.SetInsertPoint(case_blocks.at(case_blocks.size() - 2));
-        (*this)(case_stmt.unmatched, case_blocks.back());
+    if (!caseStmt.unmatched.empty()) {
+        builder.SetInsertPoint(caseBlocks.at(caseBlocks.size() - 2));
+        (*this)(caseStmt.unmatched, caseBlocks.back());
     }
-    builder.SetInsertPoint(case_blocks.back());
+    builder.SetInsertPoint(caseBlocks.back());
 }
 
 template<>
@@ -346,32 +346,34 @@ void StmtCodeGen::codeGen([[maybe_unused]] const Function& function) const {
 }
 
 template<>
-void StmtCodeGen::codeGen(const FunctionCall& function_call) const {
+void StmtCodeGen::codeGen(const FunctionCall& functionCall) const {
     std::vector<Value*> arguments;
     std::vector<Type> types;
-    for (const auto& arg : function_call.args) {
+    for (const auto& arg : functionCall.args) {
         ExprCodeGen expr(jit, locals, temps);
         expr(arg);
         auto result = expr.get();
         arguments.push_back(result.first);
         types.push_back(result.second);
     }
-    auto type = jit.getCache()->getFunctionInstantiationType(function_call.name, types);
-    builder.CreateCall(module.getFunction(mangled(function_call.name, types)), arguments);
+    auto type = jit.getCache()->getFunctionInstantiationType(functionCall.name, types);
+    builder.CreateCall(module.getFunction(mangled(functionCall.name, types)), arguments);
 }
 
 template<>
-void StmtCodeGen::codeGen(const ReturnStmt& return_stmt) const {
+void StmtCodeGen::codeGen(const ReturnStmt& returnStmt) const {
     ExprCodeGen expr(jit, locals, temps);
-    expr(return_stmt.expression);
+    expr(returnStmt.expression);
     auto returnValue = expr.get();
-    temps->removeTemporary(returnValue.first);
+    if (temps->isTemporary(returnValue.first)) {
+        temps->removeTemporary(returnValue.first);
+    }
     auto [ vars, index ] = locals->getIndex(RETURN_V);
     Assert(index != LocalSymbols::noVariable);
     storeMutableValue(jit, vars->getValue(index), returnValue.first);
     Temporaries *tmps = temps;
     while (tmps != nullptr) {
-        tmps->deleteTemporaries(jit);
+        tmps->destroyTemporaries(jit);
         tmps = tmps->getEnclosing();
     }
     LocalSymbols *lcls = locals;
@@ -379,23 +381,23 @@ void StmtCodeGen::codeGen(const ReturnStmt& return_stmt) const {
         lcls->destroyVariables(jit);
         lcls = lcls->getEnclosing();
     }
-    builder.CreateBr(exit_block);
+    builder.CreateBr(exitBlock);
 }
 
 template<>
-void StmtCodeGen::codeGen([[maybe_unused]] const ExprFunction& expression_function) const {
+void StmtCodeGen::codeGen([[maybe_unused]] const ExprFunction& expressionFunction) const {
 }
 
 template<>
-void StmtCodeGen::codeGen([[maybe_unused]] const Class& class_template) const {
+void StmtCodeGen::codeGen([[maybe_unused]] const Class& classTemplate) const {
 }
 
 template<>
-void StmtCodeGen::codeGen(const DataAssignStmt& data_assign) const {
-    const std::string& name = data_assign.name.get();
+void StmtCodeGen::codeGen(const DataAssignStmt& dataAssign) const {
+    const std::string& name = dataAssign.name.get();
     Type type;
     ExprCodeGen expr(jit, locals, temps);
-    expr(data_assign.value);
+    expr(dataAssign.value);
     auto result = expr.get();
     auto [ vars, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
     if (index != LocalSymbols::noVariable) {
@@ -403,9 +405,9 @@ void StmtCodeGen::codeGen(const DataAssignStmt& data_assign) const {
         if (isConstant(type)) {
             UnexpectedError1(NoConstantAssign, name);
         }
-        auto *value = loadMutableValue(jit, vars->getValue(index), type);
+        Value *value = loadMutableValue(jit, vars->getValue(index), type);
         Value *valuePtr = nullptr;
-        for (const auto& member : data_assign.member_list) {
+        for (const auto& member : dataAssign.memberList) {
             if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                 UnexpectedError0(BadObject);
             }
@@ -439,9 +441,9 @@ void StmtCodeGen::codeGen(const DataAssignStmt& data_assign) const {
         if (isConstant(type)) {
             UnexpectedError1(NoConstantAssign, name);
         }
-        auto *value = loadGlobalValue(jit, globalIndex, globals->getType(globalIndex));
+        Value *value = loadGlobalValue(jit, globalIndex, globals->getType(globalIndex));
         Value *valuePtr = nullptr;
-        for (const auto& member : data_assign.member_list) {
+        for (const auto& member : dataAssign.memberList) {
             if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                 UnexpectedError0(BadObject);
             }
@@ -468,16 +470,16 @@ void StmtCodeGen::codeGen(const DataAssignStmt& data_assign) const {
 }
 
 template<>
-void StmtCodeGen::codeGen(const MethodCall& method_call) const {
-    const std::string& name = method_call.name.get();
+void StmtCodeGen::codeGen(const MethodCall& methodCall) const {
+    const std::string& name = methodCall.name.get();
     Type type;
     Value *thisPtr = nullptr;
     if (locals) {
         auto [ vars, index ] = locals->getIndex(name);
         if (index != LocalSymbols::noVariable) {
             type = vars->getType(index);
-            auto *value = loadMutableValue(jit, vars->getValue(index), type);
-            for (const auto& member : method_call.member_list) {
+            Value *value = loadMutableValue(jit, vars->getValue(index), type);
+            for (const auto& member : methodCall.memberList) {
                 if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                     UnexpectedError0(BadObject);
                 }
@@ -496,9 +498,9 @@ void StmtCodeGen::codeGen(const MethodCall& method_call) const {
     auto globals = jit.getRuntimeContext().globals;
     auto globalIndex = globals->getIndex(name);
     if (globalIndex != GlobalSymbols::noVariable) {
-        auto *value = loadGlobalValue(jit, globalIndex, globals->getType(globalIndex));
+        Value *value = loadGlobalValue(jit, globalIndex, globals->getType(globalIndex));
         type = globals->getType(globalIndex);
-        for (const auto& member : method_call.member_list) {
+        for (const auto& member : methodCall.memberList) {
             if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                 UnexpectedError0(BadObject);
             }
@@ -516,19 +518,20 @@ void StmtCodeGen::codeGen(const MethodCall& method_call) const {
     if (thisPtr != nullptr) {
         auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
         Assert(instanceType != nullptr);
-        std::string method_name = instanceType->className + '.' + method_call.method;
+        std::string methodName = instanceType->className + '.' + methodCall.method;
         std::vector<Value*> arguments;
         std::vector<Type> types;
-        for (const auto& arg : method_call.args) {
+        for (const auto& arg : methodCall.args) {
             ExprCodeGen expr(jit, locals, temps);
             expr(arg);
             auto result = expr.get();
             arguments.push_back(result.first);
             types.push_back(result.second);
         }
-        auto type = jit.getCache()->getFunctionInstantiationType(method_name, types);
+        types.insert(types.begin(), instanceType);
         arguments.insert(arguments.begin(), thisPtr);
-        builder.CreateCall(module.getFunction(mangled(method_name, types)), arguments);
+        auto type = jit.getCache()->getFunctionInstantiationType(methodName, types);
+        builder.CreateCall(module.getFunction(mangled(methodName, types)), arguments);
     }
     else {
         UnexpectedError0(BadObject);
@@ -536,58 +539,58 @@ void StmtCodeGen::codeGen(const MethodCall& method_call) const {
 }
 
 template<>
-void StmtCodeGen::codeGen([[maybe_unused]] const ExpressionStmt& expression_stmt) const {
+void StmtCodeGen::codeGen([[maybe_unused]] const ExpressionStmt& expressionStmt) const {
 }
 
 void StmtCodeGen::operator()(const StmtNode& stmt) const {
-    const auto *stmt_data = stmt.get();
-    if (dynamic_cast<const CommentStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const CommentStmt&>(*stmt_data));
+    const auto *stmtData = stmt.get();
+    if (dynamic_cast<const CommentStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const CommentStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const PrintStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const PrintStmt&>(*stmt_data));
+    else if (dynamic_cast<const PrintStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const PrintStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const InitStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const InitStmt&>(*stmt_data));
+    else if (dynamic_cast<const InitStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const InitStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const AssignStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const AssignStmt&>(*stmt_data));
+    else if (dynamic_cast<const AssignStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const AssignStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const IfStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const IfStmt&>(*stmt_data));
+    else if (dynamic_cast<const IfStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const IfStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const WhileStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const WhileStmt&>(*stmt_data));
+    else if (dynamic_cast<const WhileStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const WhileStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const RepeatStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const RepeatStmt&>(*stmt_data));
+    else if (dynamic_cast<const RepeatStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const RepeatStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const CaseStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const CaseStmt&>(*stmt_data));
+    else if (dynamic_cast<const CaseStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const CaseStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const Function*>(stmt_data)) {
-        codeGen(dynamic_cast<const Function&>(*stmt_data));
+    else if (dynamic_cast<const Function*>(stmtData)) {
+        codeGen(dynamic_cast<const Function&>(*stmtData));
     }
-    else if (dynamic_cast<const FunctionCall*>(stmt_data)) {
-        codeGen(dynamic_cast<const FunctionCall&>(*stmt_data));
+    else if (dynamic_cast<const FunctionCall*>(stmtData)) {
+        codeGen(dynamic_cast<const FunctionCall&>(*stmtData));
     }
-    else if (dynamic_cast<const ReturnStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const ReturnStmt&>(*stmt_data));
+    else if (dynamic_cast<const ReturnStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const ReturnStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const ExprFunction*>(stmt_data)) {
-        codeGen(dynamic_cast<const ExprFunction&>(*stmt_data));
+    else if (dynamic_cast<const ExprFunction*>(stmtData)) {
+        codeGen(dynamic_cast<const ExprFunction&>(*stmtData));
     }
-    else if (dynamic_cast<const Class*>(stmt_data)) {
-        codeGen(dynamic_cast<const Class&>(*stmt_data));
+    else if (dynamic_cast<const Class*>(stmtData)) {
+        codeGen(dynamic_cast<const Class&>(*stmtData));
     }
-    else if (dynamic_cast<const DataAssignStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const DataAssignStmt&>(*stmt_data));
+    else if (dynamic_cast<const DataAssignStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const DataAssignStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const MethodCall*>(stmt_data)) {
-        codeGen(dynamic_cast<const MethodCall&>(*stmt_data));
+    else if (dynamic_cast<const MethodCall*>(stmtData)) {
+        codeGen(dynamic_cast<const MethodCall&>(*stmtData));
     }
-    else if (dynamic_cast<const ExpressionStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const ExpressionStmt&>(*stmt_data));
+    else if (dynamic_cast<const ExpressionStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const ExpressionStmt&>(*stmtData));
     }
     else {
         UnexpectedError0(BadStmtNode);

@@ -4,14 +4,12 @@
 #include "Type.hpp"
 #include "Report.hpp"
 #include "localize/Messages.hpp"
-#include "engine/Utility.hpp"
-#include "engine/JITfwd.hpp"
+#include "Utility.hpp"
 #include <algorithm>
 
 namespace abaci::utility {
 
 using abaci::engine::JIT;
-using abaci::engine::destroyValue;
 
 class Temporaries;
 
@@ -41,8 +39,11 @@ public:
             }); iter != temps.end()) {
             temps.erase(iter);
         }
+        else {
+            UnexpectedError0(BadTemp);
+        }
     }
-    void deleteTemporaries(JIT &jit) {
+    void destroyTemporaries(JIT &jit) {
         for (auto iter = temps.rbegin(); iter != temps.rend(); ++iter) {
             destroyValue(jit, iter->first, iter->second);
         }

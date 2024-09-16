@@ -32,20 +32,19 @@ public:
     };
     struct Instantiation {
         std::string name;
-        std::vector<Type> parameter_types;
-        Type return_type, this_type;
-        bool is_method;
+        std::vector<Type> parameterTypes;
+        Type returnType;
     };
     enum CacheType{ CacheClass, CacheFunction, CacheNone };
     Cache() = default;
     void addClassTemplate(const std::string& name, const std::vector<Variable>& variables, const std::vector<std::string>& methods);
     void addFunctionTemplate(const std::string& name, const std::vector<Variable>& parameters, const StmtList& body);
-    void addFunctionInstantiation(const std::string& name, const std::vector<Type>& types, LocalSymbols *params, Context *context, bool is_method = false, const Type& this_type = AbaciValue::None);
+    void addFunctionInstantiation(const std::string& name, const std::vector<Type>& types, LocalSymbols *params, Context *context, bool isMethod = false);
     Type getFunctionInstantiationType(const std::string& name, const std::vector<Type>& types) const;
     CacheType getCacheType(const std::string& name) const;
     const Function& getFunction(const std::string& name) const;
     const Class& getClass(const std::string& name) const;
-    unsigned getMemberIndex(const Class& cache_class, const Variable& member) const;
+    unsigned getMemberIndex(const Class& cacheClass, const Variable& member) const;
     const auto& getInstantiations() const { return instantiations; }
     void clearInstantiations() { instantiations.clear(); }
 private:

@@ -32,7 +32,7 @@ String *concatString(String *str1, String *str2);
 Complex *opComplex(Operator op, Complex *operand1, Complex *operand2);
 
 String *userInput(Context *ctx);
-AbaciValue toType(int to_type, AbaciValue value, int from_type);
+AbaciValue toType(int toType, AbaciValue value, int fromType);
 
 template<typename T>
 void printValue(Context *ctx, T value);

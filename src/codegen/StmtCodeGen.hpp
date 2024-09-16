@@ -29,14 +29,14 @@ class StmtCodeGen {
     IRBuilder<>& builder;
     Module& module;
     mutable Temporaries *temps;
-    BasicBlock *exit_block;
+    BasicBlock *exitBlock;
     mutable LocalSymbols *locals;
 public:
     StmtCodeGen() = delete;
-    StmtCodeGen(JIT& jit, Temporaries *temps = nullptr, LocalSymbols *locals = nullptr, BasicBlock *exit_block = nullptr)
+    StmtCodeGen(JIT& jit, Temporaries *temps = nullptr, LocalSymbols *locals = nullptr, BasicBlock *exitBlock = nullptr)
         : jit{ jit }, builder{ jit.getBuilder() }, module{ jit.getModule() }, temps{ temps },
-        exit_block{ exit_block }, locals{ locals } {}
-    void operator()(const StmtList& stmts, BasicBlock *exit_block = nullptr) const;
+        exitBlock{ exitBlock }, locals{ locals } {}
+    void operator()(const StmtList& stmts, BasicBlock *exitBlock = nullptr) const;
     void operator()(const StmtNode& stmt) const;
 private:
     template<typename T>

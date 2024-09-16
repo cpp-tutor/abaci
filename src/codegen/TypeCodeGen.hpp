@@ -55,23 +55,23 @@ public:
 
 class TypeCodeGen {
 public:
-    enum FunctionType { NotFunction, FreeFunction, Method };
+    enum FunctionType { NotAFunction, FreeFunction, Method };
 private:
     Context *context;
     Cache *cache;
     mutable LocalSymbols *locals;
     mutable Temporaries *temps = nullptr;
     FunctionType functionType;
-    mutable std::optional<Type> return_type;
+    mutable std::optional<Type> returnType;
 public:
     TypeCodeGen() = delete;
-    TypeCodeGen(Context *context, Cache *cache, LocalSymbols *locals = nullptr, FunctionType functionType = NotFunction)
+    TypeCodeGen(Context *context, Cache *cache, LocalSymbols *locals = nullptr, FunctionType functionType = NotAFunction)
         : context{ context }, cache{ cache }, locals{ locals }, functionType{ functionType } {}
     void operator()(const StmtList& stmts) const;
     void operator()(const StmtNode& stmt) const;
     Type get() const {
-        if (return_type.has_value()) {
-            return return_type.value();
+        if (returnType.has_value()) {
+            return returnType.value();
         }
         else {
             return AbaciValue::None;

@@ -25,34 +25,34 @@ void Cache::addFunctionTemplate(const std::string& name, const std::vector<Varia
         functions.insert({ name, { parameters, body }});
     }
     else {
-        LogicError1(FuncExists, name);
+        LogicError1(FunctionExists, name);
     }
 }
 
-void Cache::addFunctionInstantiation(const std::string& name, const std::vector<Type>& types, LocalSymbols *params, Context *context, bool is_method, const Type& this_type) {
+void Cache::addFunctionInstantiation(const std::string& name, const std::vector<Type>& types, LocalSymbols *params, Context *context, bool isMethod) {
     auto iter = functions.find(name);
     if (iter != functions.end()) {
         if (types.size() == iter->second.parameters.size()) {
             bool create_instantiation = true;
-            auto mangled_name = mangled(name, types);
+            auto mangledName = mangled(name, types);
             for (const auto& instantiation : instantiations) {
-                if (mangled_name == mangled(instantiation.name, instantiation.parameter_types)) {
+                if (mangledName == mangled(instantiation.name, instantiation.parameterTypes)) {
                     create_instantiation = false;
                     break;
                 }
             }
             if (create_instantiation) {
-                instantiations.push_back({ name, types, AbaciValue::None, AbaciValue::None, false });
-                TypeCodeGen gen_return_type(context, this, params, (is_method) ? TypeCodeGen::Method : TypeCodeGen::FreeFunction);
-                gen_return_type(iter->second.body);
+                instantiations.push_back({ name, types, AbaciValue::None });
+                TypeCodeGen genReturnType(context, this, params, (isMethod) ? TypeCodeGen::Method : TypeCodeGen::FreeFunction);
+                genReturnType(iter->second.body);
                 auto iter = std::find_if(instantiations.begin(), instantiations.end(),
                         [&](const auto& elem){
-                            return mangled(elem.name, elem.parameter_types) == mangled(name, types);
+                            return mangled(elem.name, elem.parameterTypes) == mangled(name, types);
                         });
                 if (iter != instantiations.end()) {
                     instantiations.erase(iter);
                 }
-                instantiations.push_back({ name, types, gen_return_type.get(), this_type, is_method });
+                instantiations.push_back({ name, types, genReturnType.get() });
             }
         }
         else {
@@ -60,15 +60,15 @@ void Cache::addFunctionInstantiation(const std::string& name, const std::vector<
         }
     }
     else {
-        LogicError1(FuncNotExist, name);
+        LogicError1(FunctionNotExist, name);
     }
 }
 
 Type Cache::getFunctionInstantiationType(const std::string& name, const std::vector<Type>& types) const {
-    auto mangled_name = mangled(name, types);
+    auto mangledName = mangled(name, types);
     for (const auto& instantiation : instantiations) {
-        if (mangled_name == mangled(instantiation.name, instantiation.parameter_types)) {
-            return instantiation.return_type;
+        if (mangledName == mangled(instantiation.name, instantiation.parameterTypes)) {
+            return instantiation.returnType;
         }
     }
     UnexpectedError1(NoInst, name);
@@ -79,7 +79,7 @@ const Cache::Function& Cache::getFunction(const std::string& name) const {
     if (iter != functions.end()) {
         return iter->second;
     }
-    UnexpectedError1(FuncNotExist, name);
+    UnexpectedError1(FunctionNotExist, name);
 }
 
 const Cache::Class& Cache::getClass(const std::string& name) const {
@@ -90,10 +90,10 @@ const Cache::Class& Cache::getClass(const std::string& name) const {
     UnexpectedError1(ClassNotExist, name);
 }
 
-unsigned Cache::getMemberIndex(const Class& cache_class, const Variable& member) const {
-    auto iter = std::find(cache_class.variables.begin(), cache_class.variables.end(), member);
-    if (iter != cache_class.variables.end()) {
-        return iter - cache_class.variables.begin();
+unsigned Cache::getMemberIndex(const Class& cacheClass, const Variable& member) const {
+    auto iter = std::find(cacheClass.variables.begin(), cacheClass.variables.end(), member);
+    if (iter != cacheClass.variables.end()) {
+        return iter - cacheClass.variables.begin();
     }
     LogicError1(DataNotExist, member.get());
 }

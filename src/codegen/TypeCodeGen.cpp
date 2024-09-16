@@ -57,11 +57,11 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                     for (auto iter = ++expr.begin(); iter != expr.end();) {
                         auto op = std::get<Operator>(iter++->data);
                         (*this)(*iter++);
-                        auto new_type = promote(type, pop());
-                        if (new_type == AbaciValue::Integer && op == Operator::Divide) {
-                            new_type = AbaciValue::Floating;
+                        auto newType = promote(type, pop());
+                        if (newType == AbaciValue::Integer && op == Operator::Divide) {
+                            newType = AbaciValue::Floating;
                         }
-                        type = new_type;
+                        type = newType;
                     }
                     push(type);
                     break;
@@ -131,7 +131,7 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
             const auto& call = std::get<ExprNode::FunctionNode>(node.data);
             switch (cache->getCacheType(call.name)) {
                 case Cache::CacheFunction: {
-                    const auto& cache_function = cache->getFunction(call.name);
+                    const auto& cacheFunction = cache->getFunction(call.name);
                     std::vector<Type> types;
                     for (const auto& arg : call.args) {
                         TypeEvalGen expr(context, cache, locals);
@@ -139,13 +139,13 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                         types.push_back(expr.get());
                     }
                     LocalSymbols params;
-                    for (auto arg_type = types.begin(); const auto& parameter : cache_function.parameters) {
-                        auto type = *arg_type++;
+                    for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
+                        auto type = *argType++;
                         params.add(parameter.get(), nullptr, addConstToType(type));
                     }
                     cache->addFunctionInstantiation(call.name, types, &params, context);
-                    auto return_type = cache->getFunctionInstantiationType(call.name, types);
-                    push(return_type);
+                    auto returnType = cache->getFunctionInstantiationType(call.name, types);
+                    push(returnType);
                     break;
                 }
                 case Cache::CacheClass: {
@@ -171,7 +171,7 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
             if (locals) {
                 if (auto [ vars, index ] = locals->getIndex(name); index != LocalSymbols::noVariable) {
                     type = vars->getType(index);
-                    for (const auto& member : data.member_list) {
+                    for (const auto& member : data.memberList) {
                         if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                             LogicError0(BadObject);
                         }
@@ -186,7 +186,7 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
             }
             if (auto globalIndex = context->globals->getIndex(name); globalIndex != GlobalSymbols::noVariable) {
                 type = context->globals->getType(globalIndex);
-                for (const auto& member : data.member_list) {
+                for (const auto& member : data.memberList) {
                     if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                         LogicError0(BadObject);
                     }
@@ -196,22 +196,16 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                     type = instanceType->variableTypes.at(index);
                 }
                 push(removeConstFromType(type));
+                return;
             }
             else {
-                if (name == THIS_V) {
-                    if (0 /*functionType != Method*/) {
-                        LogicError1(VarNotExist, THIS);        
-                    }
-                }
-                else {
-                    LogicError1(VarNotExist, name);
-                }
+                LogicError1(VarNotExist, (name == THIS_V) ? THIS : name);
             }
             break;
         }
         case ExprNode::MethodNode: {
-            const auto& method_call = std::get<ExprNode::MethodNode>(node.data);
-            const std::string& name = method_call.name.get();
+            const auto& methodCall = std::get<ExprNode::MethodNode>(node.data);
+            const std::string& name = methodCall.name.get();
             auto [ vars, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
             Type type;
             if (index != LocalSymbols::noVariable) {
@@ -219,7 +213,7 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                 if (isConstant(type)) {
                     LogicError1(NoConstantAssign, name);
                 }
-                for (const auto& member : method_call.member_list) {
+                for (const auto& member : methodCall.memberList) {
                     if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                         LogicError0(BadObject);
                     }
@@ -238,7 +232,7 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                 if (isConstant(type)) {
                     LogicError1(NoConstantAssign, name);
                 }
-                for (const auto& member : method_call.member_list) {
+                for (const auto& member : methodCall.memberList) {
                     if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                         LogicError0(BadObject);
                     }
@@ -251,22 +245,24 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
             if (typeToScalar(removeConstFromType(type)) == AbaciValue::Instance) {
                 auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
                 Assert(instanceType != nullptr);
-                std::string method_name = instanceType->className + '.' + method_call.method;
-                const auto& cache_function = cache->getFunction(method_name);
+                std::string methodName = instanceType->className + '.' + methodCall.method;
+                const auto& cacheFunction = cache->getFunction(methodName);
                 std::vector<Type> types;
-                for (const auto& arg : method_call.args) {
+                types.push_back(type);
+                for (const auto& arg : methodCall.args) {
                     TypeEvalGen expr(context, cache, locals);
                     expr(arg);
                     types.push_back(expr.get());
                 }
                 LocalSymbols params;
-                for (auto arg_type = types.begin(); const auto& parameter : cache_function.parameters) {
-                    auto type = *arg_type++;
+                params.add(THIS_V, nullptr, type);
+                for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
+                    auto type = *argType++;
                     params.add(parameter.get(), nullptr, addConstToType(type));
                 }
-                cache->addFunctionInstantiation(method_name, types, &params, context, true, type);
-                auto return_type = cache->getFunctionInstantiationType(method_name, types);
-                push(return_type);
+                cache->addFunctionInstantiation(methodName, types, &params, context, true);
+                auto returnType = cache->getFunctionInstantiationType(methodName, types);
+                push(returnType);
             }
             else {
                 LogicError0(BadObject);
@@ -277,22 +273,22 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
             push(AbaciValue::String);
             break;
         case ExprNode::TypeConvNode: {
-            auto target_type = std::get<ExprNode::TypeConvNode>(node.data).to_type;
+            auto targetType = std::get<ExprNode::TypeConvNode>(node.data).toType;
             auto expression = std::get<ExprNode::TypeConvNode>(node.data).expression;
             TypeEvalGen expr(context, cache, locals);
             expr(*expression);
-            if (auto iter = ValidConversions.find(target_type); iter != ValidConversions.end()) {
+            if (auto iter = ValidConversions.find(targetType); iter != ValidConversions.end()) {
                 if (std::find(iter->second.begin(), iter->second.end(), expr.get()) == iter->second.end()) {
                     LogicError0(BadConvType);
                 }
             }
             else {
-                LogicError1(BadConvTarget, static_cast<int>(typeToScalar(target_type)));
+                LogicError1(BadConvTarget, static_cast<int>(typeToScalar(targetType)));
             }
-            if (typeToScalar(target_type) == AbaciValue::Real || typeToScalar(target_type) == AbaciValue::Imag) {
-                target_type = AbaciValue::Floating;
+            if (typeToScalar(targetType) == AbaciValue::Real || typeToScalar(targetType) == AbaciValue::Imag) {
+                targetType = AbaciValue::Floating;
             }
-            push(target_type);
+            push(targetType);
             break;
         }
         default:
@@ -326,6 +322,10 @@ void TypeCodeGen::operator()(const abaci::ast::StmtList& stmts) const {
     if (!stmts.empty()) {
         locals = const_cast<LocalSymbols*>(static_cast<const LocalSymbols*>(&stmts));
         temps = const_cast<Temporaries*>(static_cast<const Temporaries*>(&stmts));
+        if (functionType != NotAFunction) {
+            locals->clear();
+        }
+        temps->clear();
         Assert(locals->size() == 0);
         Assert(temps->size() == 0);
         locals->setEnclosing(enclosing);
@@ -347,9 +347,9 @@ void TypeCodeGen::codeGen([[maybe_unused]] const CommentStmt& comment) const {
 
 template<>
 void TypeCodeGen::codeGen(const PrintStmt& print) const {
-    PrintList print_data{ print.expression };
-    print_data.insert(print_data.end(), print.format.begin(), print.format.end());
-    for (auto field : print_data) {
+    PrintList printData{ print.expression };
+    printData.insert(printData.end(), print.format.begin(), print.format.end());
+    for (auto field : printData) {
         switch (field.index()) {
             case 0: {
                 TypeEvalGen expr(context, cache, locals);
@@ -384,10 +384,10 @@ void TypeCodeGen::codeGen(const InitStmt& define) const {
             LogicError1(VarExists, define.name.get());
         }
         else if (define.assign == Operator::Equal) {
-            context->globals->add(define.name.get(), addConstToType(expr.get()));
+            Assert(context->rawArray.add() == context->globals->add(define.name.get(), addConstToType(expr.get())));
         }
         else {
-            context->globals->add(define.name.get(), expr.get());
+            Assert(context->rawArray.add() == context->globals->add(define.name.get(), expr.get()));
         }
     }
 }
@@ -420,104 +420,106 @@ void TypeCodeGen::codeGen(const AssignStmt& assign) const {
 }
 
 template<>
-void TypeCodeGen::codeGen(const IfStmt& if_stmt) const {
+void TypeCodeGen::codeGen(const IfStmt& ifStmt) const {
     TypeEvalGen expr(context, cache, locals);
-    expr(if_stmt.condition);
-    (*this)(if_stmt.true_test);
-    (*this)(if_stmt.false_test);
+    expr(ifStmt.condition);
+    (*this)(ifStmt.trueBlock);
+    (*this)(ifStmt.falseBlock);
 }
 
 template<>
-void TypeCodeGen::codeGen(const WhileStmt& while_stmt) const {
+void TypeCodeGen::codeGen(const WhileStmt& whileStmt) const {
     TypeEvalGen expr(context, cache, locals);
-    expr(while_stmt.condition);
-    (*this)(while_stmt.loop_block);
+    expr(whileStmt.condition);
+    (*this)(whileStmt.loopBlock);
 }
 
 template<>
 void TypeCodeGen::codeGen(const RepeatStmt& repeat_stmt) const {
-    (*this)(repeat_stmt.loop_block);
+    (*this)(repeat_stmt.loopBlock);
     TypeEvalGen expr(context, cache, locals);
     expr(repeat_stmt.condition);
 }
 
 template<>
-void TypeCodeGen::codeGen(const CaseStmt& case_stmt) const {
+void TypeCodeGen::codeGen(const CaseStmt& caseStmt) const {
     TypeEvalGen expr(context, cache, locals);
-    expr(case_stmt.case_value);
-    for (const auto& when : case_stmt.matches) {
+    expr(caseStmt.caseValue);
+    for (const auto& when : caseStmt.matches) {
         TypeEvalGen expr(context, cache, locals);
         expr(when.expression);
         (*this)(when.block);
     }
-    if (!case_stmt.unmatched.empty()) {
-        (*this)(case_stmt.unmatched);
+    if (!caseStmt.unmatched.empty()) {
+        (*this)(caseStmt.unmatched);
     }
 }
 
 template<>
 void TypeCodeGen::codeGen(const Function& function) const {
-    if (functionType != NotFunction) {
+    if (functionType != NotAFunction) {
         LogicError0(FuncTopLevel);
     }
-    cache->addFunctionTemplate(function.name, function.parameters, function.function_body);
+    cache->addFunctionTemplate(function.name, function.parameters, function.functionBody);
 }
 
 template<>
-void TypeCodeGen::codeGen(const FunctionCall& function_call) const {
-    const auto& cache_function = cache->getFunction(function_call.name);
+void TypeCodeGen::codeGen(const FunctionCall& functionCall) const {
+    const auto& cacheFunction = cache->getFunction(functionCall.name);
     std::vector<Type> types;
-    for (const auto& arg : function_call.args) {
+    for (const auto& arg : functionCall.args) {
         TypeEvalGen expr(context, cache, locals);
         expr(arg);
         types.push_back(expr.get());
     }
     LocalSymbols params;
-    for (auto arg_type = types.begin(); const auto& parameter : cache_function.parameters) {
-        auto type = *arg_type++;
+    for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
+        auto type = *argType++;
         params.add(parameter.get(), nullptr, addConstToType(type));
     }
-    cache->addFunctionInstantiation(function_call.name, types, &params, context);
+    cache->addFunctionInstantiation(functionCall.name, types, &params, context);
 }
 
 template<>
-void TypeCodeGen::codeGen(const ReturnStmt& return_stmt) const {
-    if (functionType == NotFunction) {
-        LogicError0(ReturnOnlyInFunc);
+void TypeCodeGen::codeGen(const ReturnStmt& returnStmt) const {
+    if (functionType == NotAFunction) {
+        LogicError0(ReturnOnlyInFunction);
     }
     TypeEvalGen expr(context, cache, locals);
-    expr(return_stmt.expression);
+    expr(returnStmt.expression);
     auto result = expr.get();
     if (typeToScalar(result) != AbaciValue::None) {
-        if (return_type.has_value() && return_type.value() != result) {
+        if (returnType.has_value() && returnType.value() != result) {
             LogicError0(FuncTypeSet);
         }
-        return_type = result;
+        returnType = result;
     }
 }
 
 template<>
-void TypeCodeGen::codeGen(const ExprFunction& expression_function) const {
-    StmtList function_body;
-    function_body.emplace_back(new ReturnStmt{ expression_function.expression });
-    cache->addFunctionTemplate(expression_function.name, expression_function.parameters, function_body);
+void TypeCodeGen::codeGen(const ExprFunction& expressionFunction) const {
+    StmtList functionBody;
+    functionBody.emplace_back(new ReturnStmt{ expressionFunction.expression });
+    cache->addFunctionTemplate(expressionFunction.name, expressionFunction.parameters, functionBody);
 }
 
 template<>
-void TypeCodeGen::codeGen(const Class& class_template) const {
-    std::vector<std::string> method_names;
-    for (const auto& method : class_template.methods) {
-        method_names.push_back(method.name);
-        cache->addFunctionTemplate(class_template.name + '.' + method.name, method.parameters, method.function_body);
+void TypeCodeGen::codeGen(const Class& classTemplate) const {
+    std::vector<std::string> methodNames;
+    for (const auto& method : classTemplate.methods) {
+        methodNames.push_back(method.name);
+        auto methodParameters = method.parameters;
+        methodParameters.emplace(methodParameters.begin(), THIS_V);
+        cache->addFunctionTemplate(classTemplate.name + '.' + method.name, methodParameters, method.functionBody);
     }
-    cache->addClassTemplate(class_template.name, class_template.variables, method_names);
+    cache->addClassTemplate(classTemplate.name, classTemplate.variables, methodNames);
 }
 
 template<>
-void TypeCodeGen::codeGen(const DataAssignStmt& data_assign) const {
-    const std::string& name = data_assign.name.get();
+void TypeCodeGen::codeGen(const DataAssignStmt& dataAssign) const {
+    const std::string& name = dataAssign.name.get();
     TypeEvalGen expr(context, cache, locals);
-    expr(data_assign.value);
+    expr(dataAssign.value);
     auto [ vars, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
     Type type;
     if (index != LocalSymbols::noVariable) {
@@ -525,7 +527,7 @@ void TypeCodeGen::codeGen(const DataAssignStmt& data_assign) const {
         if (isConstant(type)) {
             LogicError1(NoConstantAssign, name);
         }
-        for (const auto& member : data_assign.member_list) {
+        for (const auto& member : dataAssign.memberList) {
             if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                 LogicError0(BadObject);
             }
@@ -547,7 +549,7 @@ void TypeCodeGen::codeGen(const DataAssignStmt& data_assign) const {
             LogicError1(NoConstantAssign, name);
         }
         type = context->globals->getType(globalIndex);
-        for (const auto& member : data_assign.member_list) {
+        for (const auto& member : dataAssign.memberList) {
             if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                 LogicError0(BadObject);
             }
@@ -563,8 +565,8 @@ void TypeCodeGen::codeGen(const DataAssignStmt& data_assign) const {
 }
 
 template<>
-void TypeCodeGen::codeGen(const MethodCall& method_call) const {
-    const std::string& name = method_call.name.get();
+void TypeCodeGen::codeGen(const MethodCall& methodCall) const {
+    const std::string& name = methodCall.name.get();
     auto [ vars, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
     Type type;
     if (index != LocalSymbols::noVariable) {
@@ -572,7 +574,7 @@ void TypeCodeGen::codeGen(const MethodCall& method_call) const {
         if (isConstant(type)) {
             LogicError1(NoConstantAssign, name);
         }
-        for (const auto& member : method_call.member_list) {
+        for (const auto& member : methodCall.memberList) {
             if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                 LogicError0(BadObject);
             }
@@ -591,7 +593,7 @@ void TypeCodeGen::codeGen(const MethodCall& method_call) const {
         if (isConstant(type)) {
             LogicError1(NoConstantAssign, name);
         }
-        for (const auto& member : method_call.member_list) {
+        for (const auto& member : methodCall.memberList) {
             if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                 LogicError0(BadObject);
             }
@@ -604,20 +606,22 @@ void TypeCodeGen::codeGen(const MethodCall& method_call) const {
     if (typeToScalar(removeConstFromType(type)) == AbaciValue::Instance) {
         auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
         Assert(instanceType != nullptr);
-        std::string method_name = instanceType->className + '.' + method_call.method;
-        const auto& cache_function = cache->getFunction(method_name);
+        std::string methodName = instanceType->className + '.' + methodCall.method;
+        const auto& cacheFunction = cache->getFunction(methodName);
         std::vector<Type> types;
-        for (const auto& arg : method_call.args) {
+        types.push_back(type);
+        for (const auto& arg : methodCall.args) {
             TypeEvalGen expr(context, cache, locals);
             expr(arg);
             types.push_back(expr.get());
         }
         LocalSymbols params;
-        for (auto arg_type = types.begin(); const auto& parameter : cache_function.parameters) {
-            auto type = *arg_type++;
+        params.add(THIS_V, nullptr, instanceType);
+        for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
+            auto type = *argType++;
             params.add(parameter.get(), nullptr, addConstToType(type));
         }
-        cache->addFunctionInstantiation(method_name, types, &params, context, true, type);
+        cache->addFunctionInstantiation(methodName, types, &params, context, true);
     }
     else {
         LogicError0(BadObject);
@@ -630,54 +634,54 @@ void TypeCodeGen::codeGen([[maybe_unused]] const ExpressionStmt& expression_stmt
 }
 
 void TypeCodeGen::operator()(const StmtNode& stmt) const {
-    const auto *stmt_data = stmt.get();
-    if (dynamic_cast<const CommentStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const CommentStmt&>(*stmt_data));
+    const auto *stmtData = stmt.get();
+    if (dynamic_cast<const CommentStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const CommentStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const PrintStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const PrintStmt&>(*stmt_data));
+    else if (dynamic_cast<const PrintStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const PrintStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const InitStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const InitStmt&>(*stmt_data));
+    else if (dynamic_cast<const InitStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const InitStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const AssignStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const AssignStmt&>(*stmt_data));
+    else if (dynamic_cast<const AssignStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const AssignStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const IfStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const IfStmt&>(*stmt_data));
+    else if (dynamic_cast<const IfStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const IfStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const WhileStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const WhileStmt&>(*stmt_data));
+    else if (dynamic_cast<const WhileStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const WhileStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const RepeatStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const RepeatStmt&>(*stmt_data));
+    else if (dynamic_cast<const RepeatStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const RepeatStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const CaseStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const CaseStmt&>(*stmt_data));
+    else if (dynamic_cast<const CaseStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const CaseStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const Function*>(stmt_data)) {
-        codeGen(dynamic_cast<const Function&>(*stmt_data));
+    else if (dynamic_cast<const Function*>(stmtData)) {
+        codeGen(dynamic_cast<const Function&>(*stmtData));
     }
-    else if (dynamic_cast<const FunctionCall*>(stmt_data)) {
-        codeGen(dynamic_cast<const FunctionCall&>(*stmt_data));
+    else if (dynamic_cast<const FunctionCall*>(stmtData)) {
+        codeGen(dynamic_cast<const FunctionCall&>(*stmtData));
     }
-    else if (dynamic_cast<const ReturnStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const ReturnStmt&>(*stmt_data));
+    else if (dynamic_cast<const ReturnStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const ReturnStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const ExprFunction*>(stmt_data)) {
-        codeGen(dynamic_cast<const ExprFunction&>(*stmt_data));
+    else if (dynamic_cast<const ExprFunction*>(stmtData)) {
+        codeGen(dynamic_cast<const ExprFunction&>(*stmtData));
     }
-    else if (dynamic_cast<const Class*>(stmt_data)) {
-        codeGen(dynamic_cast<const Class&>(*stmt_data));
+    else if (dynamic_cast<const Class*>(stmtData)) {
+        codeGen(dynamic_cast<const Class&>(*stmtData));
     }
-    else if (dynamic_cast<const DataAssignStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const DataAssignStmt&>(*stmt_data));
+    else if (dynamic_cast<const DataAssignStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const DataAssignStmt&>(*stmtData));
     }
-    else if (dynamic_cast<const MethodCall*>(stmt_data)) {
-        codeGen(dynamic_cast<const MethodCall&>(*stmt_data));
+    else if (dynamic_cast<const MethodCall*>(stmtData)) {
+        codeGen(dynamic_cast<const MethodCall&>(*stmtData));
     }
-    else if (dynamic_cast<const ExpressionStmt*>(stmt_data)) {
-        codeGen(dynamic_cast<const ExpressionStmt&>(*stmt_data));
+    else if (dynamic_cast<const ExpressionStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const ExpressionStmt&>(*stmtData));
     }
     else {
         UnexpectedError0(BadStmtNode);

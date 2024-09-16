@@ -16,7 +16,6 @@
 #include <charconv>
 #include <sstream>
 #include <cstring>
-#include <iostream>
 
 namespace abaci::parser {
 
@@ -26,7 +25,6 @@ using x3::string;
 using x3::lit;
 using x3::lexeme;
 using x3::ascii::space;
-using x3::expect;
 
 using abaci::utility::AbaciValue;
 using abaci::utility::Constants;
@@ -384,7 +382,7 @@ auto makeThisPtr = [](auto& ctx){
 
 auto makeTypeConversion = [](auto& ctx){
     const TypeConvItems& items = _attr(ctx);
-    auto iter = TypeConversions.find(items.to_type);
+    auto iter = TypeConversions.find(items.toType);
     if (iter != TypeConversions.end()) {
         _val(ctx) = TypeConv{ iter->second, std::shared_ptr<ExprNode>{ new ExprNode(items.expression) } };
     }
@@ -502,13 +500,13 @@ const auto primary_n_def = value[MakeNode<>()] | ( LEFT_PAREN > logic_or[MakeNod
 const auto keywords_def = lit(AND) | CASE | CLASS | COMPLEX | ELSE | ENDCASE | ENDCLASS | ENDFN | ENDIF | ENDWHILE
     | FALSE | FLOAT | FN | IF | IMAG | INPUT | INT | LET | NOT | OR | PRINT | REAL | REPEAT | RETURN | STR | THIS | TRUE | UNTIL | WHEN | WHILE;
 
-const auto comment_items_def = *(char_ - '\n');
+const auto comment_items_def = +char_('\40', '\377');
 const auto comment_def = REM >> comment_items[MakeStmt<CommentStmt>()];
 const auto print_items_def = expression > -( +comma | semicolon );
 const auto print_stmt_def = PRINT >> print_items[MakeStmt<PrintStmt>()];
 const auto let_items_def = variable >> (equal | from) >> expression;
 const auto let_stmt_def = LET >> let_items[MakeStmt<InitStmt>()];
-const auto assign_items_def = variable >> from >> expression;
+const auto assign_items_def = variable >> FROM >> expression;
 const auto assign_stmt_def = assign_items[MakeStmt<AssignStmt>()];
 
 const auto if_items_def = expression > block > -( ELSE > block );
@@ -526,7 +524,7 @@ const auto case_stmt_def = CASE > case_items[MakeStmt<CaseStmt>()] > ENDCASE;
 const auto function_parameters_def = LEFT_PAREN > -( variable >> *( COMMA > variable ) ) > RIGHT_PAREN;
 const auto function_items_def = identifier > function_parameters > block;
 const auto function_def = FN > function_items[MakeStmt<Function>()] > ENDFN;
-const auto expression_function_items_def = identifier >> function_parameters > to > expression;
+const auto expression_function_items_def = identifier >> function_parameters > TO > expression;
 const auto expression_function_def = LET >> expression_function_items[MakeStmt<ExprFunction>()];
 
 const auto call_args_def = LEFT_PAREN >> -( expression >> *( COMMA >> expression) ) >> RIGHT_PAREN;
@@ -537,8 +535,8 @@ const auto return_stmt_def = RETURN > return_items[MakeStmt<ReturnStmt>()];
 
 const auto class_items_def = identifier > function_parameters >> *(FN > function_items > ENDFN);
 const auto class_template_def = CLASS > class_items[MakeStmt<Class>()] > ENDCLASS;
-const auto data_assign_items_def = variable >> +( DOT >> variable ) >> from > expression;
-const auto this_assign_items_def = this_ptr >> +( DOT >> variable ) >> from > expression;
+const auto data_assign_items_def = variable >> +( DOT >> variable ) >> FROM > expression;
+const auto this_assign_items_def = this_ptr >> +( DOT >> variable ) >> FROM > expression;
 const auto data_assign_stmt_def = this_assign_items[MakeStmt<DataAssignStmt>()] | data_assign_items[MakeStmt<DataAssignStmt>()];
 const auto this_call_items_def = this_ptr >> DOT >> *( variable >> DOT ) >> identifier >> call_args;
 const auto method_call_items_def = variable >> DOT >> *( variable >> DOT ) >> identifier >> call_args;
@@ -547,7 +545,7 @@ const auto method_call_def = this_call_items[MakeStmt<MethodCall>()] | method_ca
 const auto expression_stmt_items_def = expression;
 const auto expression_stmt_def = expression_stmt_items[MakeStmt<ExpressionStmt>()];
 
-const auto statement_def = assign_stmt | method_call | data_assign_stmt | function_call | print_stmt | expression_function | let_stmt | if_stmt | while_stmt | repeat_stmt | case_stmt | return_stmt | function | class_template /*| expression_stmt*/ | comment;
+const auto statement_def = assign_stmt | method_call | data_assign_stmt | function_call | print_stmt | expression_function | let_stmt | if_stmt | while_stmt | repeat_stmt | case_stmt | return_stmt | function | class_template | expression_stmt | comment;
 const auto block_def = *statement;
 
 BOOST_SPIRIT_DEFINE(number_str, base_number_str, boolean_str, string_str, value)
@@ -570,7 +568,7 @@ BOOST_SPIRIT_DEFINE(identifier, variable, function_value_call, data_value_call, 
     this_ptr, this_assign_items, this_call_items,
     method_call_items, method_call, expression_stmt_items, expression_stmt, statement, block)
 
-bool parse_block(const std::string& block_str, StmtList& ast, std::ostream& error, Constants *constants) {
+bool parseBlock(const std::string& block_str, StmtList& ast, std::ostream& error, Constants *constants) {
     ConstantsTable(constants);
     auto iter = block_str.begin();
     auto end = block_str.end();
@@ -582,7 +580,7 @@ bool parse_block(const std::string& block_str, StmtList& ast, std::ostream& erro
     return result;
 }
 
-bool parse_statement(std::string& stmt_str, StmtNode& ast, std::ostream& error, Constants *constants) {
+bool parseStatement(std::string& stmt_str, StmtNode& ast, std::ostream& error, Constants *constants) {
     ConstantsTable(constants);
     auto iter = stmt_str.begin();
     auto end = stmt_str.end();
@@ -595,7 +593,7 @@ bool parse_statement(std::string& stmt_str, StmtNode& ast, std::ostream& error, 
     return result;
 }
 
-bool test_statement(const std::string& stmt_str) {
+bool testStatement(const std::string& stmt_str) {
     auto iter = stmt_str.begin();
     auto end = stmt_str.end();
     std::ostringstream dummy;

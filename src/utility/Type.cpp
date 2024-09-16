@@ -75,52 +75,52 @@ Type removeConstFromType(const Type& type) {
 }
 
 std::string mangled(const std::string& name, const std::vector<Type>& types) {
-    std::string function_name;
+    std::string functionName;
     for (unsigned char ch : name) {
         if (ch >= 0x80 || ch == '\'') {
-            function_name.push_back('.');
+            functionName.push_back('.');
             char buffer[16];
             auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), static_cast<int>(ch), 16);
             if (ec != std::errc()) {
                 UnexpectedError0(BadNumericConv);
             }
             *ptr = '\0';
-            function_name.append(buffer);
+            functionName.append(buffer);
         }
         else if (isalnum(ch) || ch == '_' || ch == '.') {
-            function_name.push_back(ch);
+            functionName.push_back(ch);
         }
         else {
             UnexpectedError0(BadChar);
         }
     }
-    for (const auto& parameter_type : types) {
-        function_name.push_back('.');
-        if (std::holds_alternative<AbaciValue::Type>(parameter_type)) {
+    for (const auto& parameterType : types) {
+        functionName.push_back('.');
+        if (std::holds_alternative<AbaciValue::Type>(parameterType)) {
             char buffer[16];
             auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer),
-                static_cast<int>(std::get<AbaciValue::Type>(parameter_type) & AbaciValue::TypeMask), 10);
+                static_cast<int>(std::get<AbaciValue::Type>(parameterType) & AbaciValue::TypeMask), 10);
             if (ec != std::errc()) {
                 UnexpectedError0(BadNumericConv);
             }
             *ptr = '\0';
-            function_name.append(buffer);
+            functionName.append(buffer);
         }
-        else if (std::holds_alternative<std::shared_ptr<TypeBase>>(parameter_type)) {
-            if (auto instance = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(parameter_type))) {
+        else if (std::holds_alternative<std::shared_ptr<TypeBase>>(parameterType)) {
+            if (auto instance = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(parameterType))) {
                 for (unsigned char ch : instance->className) {
                     if (ch >= 0x80 || ch == '\'') {
-                        function_name.push_back('.');
+                        functionName.push_back('.');
                         char buffer[16];
                         auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), static_cast<int>(ch), 16);
                         if (ec != std::errc()) {
                             UnexpectedError0(BadNumericConv);
                         }
                         *ptr = '\0';
-                        function_name.append(buffer);
+                        functionName.append(buffer);
                     }
                     else if (isalnum(ch) || ch == '_' || ch == '.') {
-                        function_name.push_back(ch);
+                        functionName.push_back(ch);
                     }
                     else {
                         UnexpectedError0(BadChar);
@@ -132,7 +132,7 @@ std::string mangled(const std::string& name, const std::vector<Type>& types) {
             }
         }
     }
-    return function_name;
+    return functionName;
 }
 
 
@@ -151,7 +151,7 @@ bool operator==(const Type& lhs, const Type& rhs) {
         }
         else if (auto lhsPtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(lhs)),
             rhsPtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(rhs)); lhsPtr && rhsPtr) {
-            if (lhsPtr->element_type != rhsPtr->element_type) {
+            if (lhsPtr->elementType != rhsPtr->elementType) {
                 return false;
             }
             else if (lhsPtr->dimensions.size() == rhsPtr->dimensions.size()) {
