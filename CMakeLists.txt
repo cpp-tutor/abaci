@@ -28,13 +28,13 @@ set(SOURCES
     src/utility/Operator.cpp
     src/utility/Symbol.cpp
     src/utility/Type.cpp
+    src/utility/Utility.cpp
     src/parser/Parse.cpp
     src/codegen/ExprCodeGen.cpp
     src/codegen/StmtCodeGen.cpp
     src/codegen/TypeCodeGen.cpp
     src/engine/Cache.cpp
     src/engine/JIT.cpp
-    src/engine/Utility.cpp
     src/main.cpp
 )
 
