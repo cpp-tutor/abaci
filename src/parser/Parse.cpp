@@ -25,6 +25,7 @@ using x3::string;
 using x3::lit;
 using x3::lexeme;
 using x3::ascii::space;
+using x3::position_tagged;
 
 using abaci::utility::AbaciValue;
 using abaci::utility::Constants;
@@ -323,7 +324,7 @@ auto makeNumber = [](auto& ctx) {
     if (str.find(IMAGINARY) != std::string::npos) {
         double imag;
         std::from_chars(str.data(), str.data() + str.size() - strlen(IMAGINARY), imag);
-        _val(ctx) = ConstantsTable()->add(Complex(0, imag));
+        _val(ctx) = ConstantsTable()->add(Complex{ 0, imag });
     }
     else if (str.find(DOT) != std::string::npos) {
         double d;
@@ -384,7 +385,7 @@ auto makeTypeConversion = [](auto& ctx){
     const TypeConvItems& items = _attr(ctx);
     auto iter = TypeConversions.find(items.toType);
     if (iter != TypeConversions.end()) {
-        _val(ctx) = TypeConv{ iter->second, std::shared_ptr<ExprNode>{ new ExprNode(items.expression) } };
+        _val(ctx) = TypeConv{ position_tagged{}, iter->second, std::make_shared<ExprNode>(items.expression) };
     }
 };
 

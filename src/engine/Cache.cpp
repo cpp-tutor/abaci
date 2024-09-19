@@ -29,7 +29,7 @@ void Cache::addFunctionTemplate(const std::string& name, const std::vector<Varia
     }
 }
 
-void Cache::addFunctionInstantiation(const std::string& name, const std::vector<Type>& types, LocalSymbols *params, Context *context, bool isMethod) {
+void Cache::addFunctionInstantiation(const std::string& name, const std::vector<Type>& types, LocalSymbols *params, Context *context) {
     auto iter = functions.find(name);
     if (iter != functions.end()) {
         if (types.size() == iter->second.parameters.size()) {
@@ -43,7 +43,7 @@ void Cache::addFunctionInstantiation(const std::string& name, const std::vector<
             }
             if (create_instantiation) {
                 instantiations.push_back({ name, types, AbaciValue::None });
-                TypeCodeGen genReturnType(context, this, params, (isMethod) ? TypeCodeGen::Method : TypeCodeGen::FreeFunction);
+                TypeCodeGen genReturnType(context, this, params, TypeCodeGen::GetReturnType);
                 genReturnType(iter->second.body);
                 auto iter = std::find_if(instantiations.begin(), instantiations.end(),
                         [&](const auto& elem){

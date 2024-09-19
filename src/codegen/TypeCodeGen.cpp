@@ -260,7 +260,7 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                     auto type = *argType++;
                     params.add(parameter.get(), nullptr, addConstToType(type));
                 }
-                cache->addFunctionInstantiation(methodName, types, &params, context, true);
+                cache->addFunctionInstantiation(methodName, types, &params, context);
                 auto returnType = cache->getFunctionInstantiationType(methodName, types);
                 push(returnType);
             }
@@ -317,28 +317,22 @@ AbaciValue::Type TypeEvalGen::promote(const Type& type_operand1, const Type& typ
 }
 
 void TypeCodeGen::operator()(const abaci::ast::StmtList& stmts) const {
-    LocalSymbols *enclosing = locals;
-    Temporaries *enclosingTemps = temps;
     if (!stmts.empty()) {
+        LocalSymbols *enclosing = locals;
         locals = const_cast<LocalSymbols*>(static_cast<const LocalSymbols*>(&stmts));
-        temps = const_cast<Temporaries*>(static_cast<const Temporaries*>(&stmts));
-        if (functionType != NotAFunction) {
-            locals->clear();
-        }
-        temps->clear();
         Assert(locals->size() == 0);
-        Assert(temps->size() == 0);
         locals->setEnclosing(enclosing);
-        temps->setEnclosing(enclosingTemps);
         for (const auto& stmt : stmts) {
             if (dynamic_cast<const ReturnStmt*>(stmt.get()) && &stmt != &stmts.back()) {
                 LogicError0(ReturnAtEnd);
             }
             (*this)(stmt);
         }
+        if (functionType == GetReturnType) {
+            locals->clear();
+        }
+        locals = locals->getEnclosing();
     }
-    locals = enclosing;
-    temps = enclosingTemps;
 }
 
 template<>
@@ -621,7 +615,7 @@ void TypeCodeGen::codeGen(const MethodCall& methodCall) const {
             auto type = *argType++;
             params.add(parameter.get(), nullptr, addConstToType(type));
         }
-        cache->addFunctionInstantiation(methodName, types, &params, context, true);
+        cache->addFunctionInstantiation(methodName, types, &params, context);
     }
     else {
         LogicError0(BadObject);

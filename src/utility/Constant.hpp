@@ -12,19 +12,7 @@ namespace abaci::utility {
 class Constants {
     std::vector<std::pair<AbaciValue,Type>> constants;
 public:
-    std::size_t add(AbaciValue value, const Type& type) {
-        if (auto iter = std::find_if(constants.begin(), constants.end(),
-                [&value,type = typeToScalar(type)](const auto& match){
-                    return type < AbaciValue::Complex && match.first.integer == value.integer;
-                }
-            ); 1 || constants.empty() || iter != constants.end()) {
-            constants.emplace_back(std::pair{ value, type });
-            return constants.size() - 1;
-        }
-        else {
-            return iter - constants.begin();
-        }
-    }
+    std::size_t add(AbaciValue value, const Type& type);
     template<typename T>
     std::size_t add(const T& value);
     const auto& get(std::size_t index) const {

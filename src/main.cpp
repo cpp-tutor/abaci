@@ -75,6 +75,7 @@ int main(const int argc, const char **argv) {
     abaci::utility::Constants constants;
     abaci::utility::Context context(std::cin, std::cout, std::cerr, constants);
     abaci::engine::Cache functions;
+    abaci::utility::Temporaries temps;
     while (!std::cin.eof() && !input.ends_with(EXIT)) {
         std::string moreInput = "\n";
         while (!std::cin.eof() && !abaci::parser::testStatement(input) && !moreInput.empty()) {
@@ -88,7 +89,6 @@ int main(const int argc, const char **argv) {
                     abaci::codegen::TypeCodeGen typeGen(&context, &functions);
                     typeGen(ast);
                     abaci::engine::JIT jit("Abaci", "program", &context, &functions);
-                    abaci::utility::Temporaries temps;
                     abaci::codegen::StmtCodeGen codeGen(jit, &temps);
                     codeGen(ast);
                     temps.destroyTemporaries(jit);

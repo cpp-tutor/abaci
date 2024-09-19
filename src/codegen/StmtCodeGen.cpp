@@ -48,8 +48,10 @@ void StmtCodeGen::operator()(const StmtList& stmts, BasicBlock *exitBlock) const
     if (!stmts.empty()) {
         locals = const_cast<LocalSymbols*>(static_cast<const LocalSymbols*>(&stmts));
         locals->makeVariables(jit);
+        Temporaries *enclosingTemps = temps;
         temps = const_cast<Temporaries*>(static_cast<const Temporaries*>(&stmts));
         Assert(temps->size() == 0);
+        temps->setEnclosing(enclosingTemps);
         for (const auto& stmt : stmts) {
             (*this)(stmt);
         }
@@ -62,6 +64,8 @@ void StmtCodeGen::operator()(const StmtList& stmts, BasicBlock *exitBlock) const
         }
         temps->clear();
         locals->clear();
+        temps = temps->getEnclosing();
+        locals = locals->getEnclosing();
     }   
     else {
         if (exitBlock) {

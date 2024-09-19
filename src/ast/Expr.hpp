@@ -15,15 +15,14 @@
 namespace abaci::ast {
 
 using boost::spirit::x3::position_tagged;
-
-class ExprNode;
-
-struct ExprList : std::vector<ExprNode>, position_tagged {};
-
 using abaci::utility::AbaciValue;
 using abaci::utility::Constants;
 using abaci::utility::Operator;
 using abaci::utility::Variable;
+
+class ExprNode;
+
+using ExprList = std::vector<ExprNode>;
 
 struct FunctionValueCall : position_tagged {
     std::string name;
@@ -42,11 +41,11 @@ struct MethodValueCall : position_tagged {
     ExprList args;
 };
 
-struct UserInput {
+struct UserInput : position_tagged {
     std::string dummy;
 };
 
-struct TypeConv {
+struct TypeConv : position_tagged {
     AbaciValue::Type toType;
     std::shared_ptr<ExprNode> expression;
 };

@@ -2,6 +2,7 @@
 #include "Report.hpp"
 #include "localize/Messages.hpp"
 #include "lib/Abaci.hpp"
+#include <cstring>
 
 namespace abaci::utility {
 
@@ -9,6 +10,56 @@ using abaci::lib::makeComplex;
 using abaci::lib::makeString;
 using abaci::lib::destroyComplex;
 using abaci::lib::destroyString;
+
+std::size_t Constants::add(AbaciValue value, const Type& type) {
+    if (auto iter = std::find_if(constants.begin(), constants.end(),
+            [&value,type = typeToScalar(type)](const auto& match){
+                if (typeToScalar(match.second) != type) {
+                    return false;
+                }
+                switch (type) {
+                    case AbaciValue::Boolean:
+                    case AbaciValue::Integer:
+                        return match.first.integer == value.integer;
+                    case AbaciValue::Floating:
+                        return match.first.floating == value.floating;
+                    case AbaciValue::Complex: {
+                        auto *matchComplex = reinterpret_cast<Complex*>(match.first.object);
+                        auto *valueComplex = reinterpret_cast<Complex*>(value.object);
+                        if (matchComplex->real == valueComplex->real && matchComplex->imag == valueComplex->imag) {
+                            destroyComplex(valueComplex);
+                            return true;
+                        }
+                        else {
+                            return false;
+                        }
+                    }
+                    case AbaciValue::String: {
+                        auto *matchString = reinterpret_cast<String*>(match.first.object);
+                        auto *valueString = reinterpret_cast<String*>(value.object);
+                        if (matchString->len == valueString->len
+                            && !strncmp(reinterpret_cast<const char*>(matchString->ptr),
+                                reinterpret_cast<const char*>(valueString->ptr),
+                                matchString->len)) {
+                                    destroyString(valueString);
+                                    return true;
+                                }
+                                else {
+                                    return false;
+                                }
+                    }
+                    default:
+                        return false;
+                }
+            }
+        ); iter == constants.end()) {
+        constants.emplace_back(std::pair{ value, type });
+        return constants.size() - 1;
+    }
+    else {
+        return iter - constants.begin();
+    }
+}
 
 template<>
 std::size_t Constants::add(const bool& boolean) {

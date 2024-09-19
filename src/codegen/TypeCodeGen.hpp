@@ -55,12 +55,11 @@ public:
 
 class TypeCodeGen {
 public:
-    enum FunctionType { NotAFunction, FreeFunction, Method };
+    enum FunctionType { NotAFunction, FreeFunction, Method, GetReturnType };
 private:
     Context *context;
     Cache *cache;
     mutable LocalSymbols *locals;
-    mutable Temporaries *temps = nullptr;
     FunctionType functionType;
     mutable std::optional<Type> returnType;
 public:

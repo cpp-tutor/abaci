@@ -1,6 +1,7 @@
 #ifndef Symbol_hpp
 #define Symbol_hpp
 
+#include <llvm/ADT/APFloat.h>
 #include "Type.hpp"
 #include "engine/JITfwd.hpp"
 #include "Report.hpp"

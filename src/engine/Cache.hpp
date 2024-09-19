@@ -39,7 +39,7 @@ public:
     Cache() = default;
     void addClassTemplate(const std::string& name, const std::vector<Variable>& variables, const std::vector<std::string>& methods);
     void addFunctionTemplate(const std::string& name, const std::vector<Variable>& parameters, const StmtList& body);
-    void addFunctionInstantiation(const std::string& name, const std::vector<Type>& types, LocalSymbols *params, Context *context, bool isMethod = false);
+    void addFunctionInstantiation(const std::string& name, const std::vector<Type>& types, LocalSymbols *params, Context *context);
     Type getFunctionInstantiationType(const std::string& name, const std::vector<Type>& types) const;
     CacheType getCacheType(const std::string& name) const;
     const Function& getFunction(const std::string& name) const;
