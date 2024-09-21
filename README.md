@@ -31,7 +31,7 @@ To build with Clang it may be necessary to use C++20 (instead of C++23) in the C
 set(CMAKE_CXX_STANDARD 20)
 ```
 
-To build against C++23's `<format>` and `<print>` headers (if available) instead of libfmt, use `make -DABACI_USE_STD_FORMAT=1`/
+To build against C++23's `<format>` and `<print>` headers (if available) instead of libfmt, use `cmake .. -DCMAKE_CXX_FLAGS="-DABACI_USE_STD_FORMAT=1"`.
 
 Run `./abaci` without arguments to enter an interactive session, or with a source filename as the single argument to execute a script.
 
@@ -181,9 +181,9 @@ g()
 
 ```
 class c(x,y)
-  fn i(d) ->
-    print x * d
-    print y * d
+  fn i(d)
+    print this.x * d
+    print this.y * d
   endfn
 endclass
 ```
