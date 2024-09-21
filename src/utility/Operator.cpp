@@ -1,4 +1,5 @@
 #include "Operator.hpp"
+#include "Report.hpp"
 #include "localize/Keywords.hpp"
 
 namespace abaci::utility {
@@ -29,5 +30,14 @@ const std::unordered_map<std::string,Operator> Operators{
     { FROM, Operator::From },
     { TO, Operator::To }
 };
+
+const std::string& operatorToString(Operator op) {
+    for (const auto& item : Operators) {
+        if (item.second == op) {
+            return item.first;
+        }
+    }
+    UnexpectedError0(BadOperator);
+}
 
 } // namespace abaci::utility

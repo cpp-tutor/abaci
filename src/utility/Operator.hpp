@@ -13,6 +13,8 @@ enum class Operator { None, Plus, Minus, Times, Divide, Modulo, FloorDivide, Exp
 
 extern const std::unordered_map<std::string,Operator> Operators;
 
+const std::string& operatorToString(Operator op);
+
 } // namespace abaci::utility
 
 #endif

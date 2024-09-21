@@ -95,7 +95,7 @@ unsigned Cache::getMemberIndex(const Class& cacheClass, const Variable& member) 
     if (iter != cacheClass.variables.end()) {
         return iter - cacheClass.variables.begin();
     }
-    LogicError1(DataNotExist, member.get());
+    LogicError1(DataNotExist, member.name);
 }
 
 Cache::CacheType Cache::getCacheType(const std::string& name) const {

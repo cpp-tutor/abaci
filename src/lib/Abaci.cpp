@@ -10,12 +10,15 @@
 #include <print>
 using std::print;
 using std::format;
+using std::vformat;
+using std::make_format_args;
 #else
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 using fmt::print;
 using fmt::format;
+using fmt::runtime;
 #endif
 
 namespace abaci::lib {
@@ -87,9 +90,9 @@ void destroyInstance(Instance *object) {
     delete object;
 }
 
-int compareString(String *str1, String *str2) {
-    return strncmp(reinterpret_cast<char*>(str1->ptr), reinterpret_cast<char*>(str2->ptr),
-        (str1->len <= str2->len) ? str1->len : str2->len);
+bool compareString(String *str1, String *str2) {
+    return str1->len == str2->len
+        && !strncmp(reinterpret_cast<char*>(str1->ptr), reinterpret_cast<char*>(str2->ptr), str1->len);
 }
 
 String *concatString(String *str1, String *str2) {
@@ -327,7 +330,11 @@ void printValue<String*>(Context *ctx, String *value) {
 
 template<>
 void printValue<Instance*>(Context *ctx, Instance *value) {
-    print(*(ctx->output), "Instance of \'{}\'", reinterpret_cast<const char*>(value->className));
+#ifdef ABACI_USE_STD_FORMAT
+    *(ctx->output) << vformat(InstanceOf, make_format_args(reinterpret_cast<const char*>(value->className)));
+#else
+    print(*(ctx->output), runtime(InstanceOf), reinterpret_cast<const char*>(value->className));
+#endif
 }
 
 void printComma(Context *ctx) {

@@ -13,7 +13,6 @@
 #include <stdexcept>
 #include <memory>
 #include <cmath>
-#include <cstring>
 
 #if LLVM_VERSION_MAJOR < 17
 #define RUNTIME_FUNCTION(NAME, ADDRESS) { (*jit)->getExecutionSession().intern(NAME), { reinterpret_cast<uintptr_t>(ADDRESS), JITSymbolFlags::Callable | JITSymbolFlags::Exported } }
@@ -47,7 +46,7 @@ void JIT::initialize() {
     StructType *instanceType = StructType::create(*context, "struct.Instance");
     instanceType->setBody({ PointerType::get(builder.getInt8Ty(), 0), builder.getInt64Ty(), PointerType::get(abaciValueType, 0) });
     StructType *contextType = StructType::create(*context, "struct.Context");
-    contextType->setBody({ PointerType::get(abaciValueType, 0), PointerType::get(builder.getInt8Ty(), 0), PointerType::get(builder.getInt8Ty(), 0), PointerType::get(builder.getInt8Ty(), 0), PointerType::get(builder.getInt8Ty(), 0), PointerType::get(builder.getInt8Ty(), 0) });
+    contextType->setBody({ PointerType::get(abaciValueType, 0), PointerType::get(builder.getInt8Ty(), 0), PointerType::get(builder.getInt8Ty(), 0), PointerType::get(builder.getInt8Ty(), 0), PointerType::get(builder.getInt8Ty(), 0) });
     globalContext = new llvm::GlobalVariable(*module, PointerType::get(contextType, 0), false, llvm::GlobalValue::ExternalLinkage, ConstantPointerNull::get(PointerType::get(contextType, 0)), "Context");
     FunctionType *printValueBooleanType = FunctionType::get(builder.getVoidTy(), { PointerType::get(contextType, 0), builder.getInt1Ty() }, false);
     Function::Create(printValueBooleanType, Function::ExternalLinkage, "printValueBoolean", module.get());
@@ -101,17 +100,26 @@ void JIT::initialize() {
         for (const auto& type : instantiation.parameterTypes) {
             parameterTypes.push_back(typeToLLVMType(*this, type));
         }
+        const auto& cacheFunction = cache->getFunction(instantiation.name);
+        LocalSymbols parameters;
+        for (std::size_t index = 0; const auto& param : cacheFunction.parameters) {
+            parameters.add(param.name, nullptr, instantiation.parameterTypes.at(index));
+            ++index;
+        }
+        TypeCodeGen typeGen(runtimeContext, cache, &parameters,
+            (cacheFunction.parameters.size() >= 1 && cacheFunction.parameters.at(0).name == THIS_V)
+            ? TypeCodeGen::Method : TypeCodeGen::FreeFunction);
+        typeGen(cacheFunction.body);
+        Assert(typeGen.get() == instantiation.returnType);
         auto returnType = typeToLLVMType(*this, instantiation.returnType);
         FunctionType *instantiationFunctionType = FunctionType::get(returnType, { parameterTypes }, false);
         currentFunction = Function::Create(instantiationFunctionType, Function::ExternalLinkage, functionName, *module);
         BasicBlock *entryBlock = BasicBlock::Create(*context, "entry", currentFunction);
         BasicBlock *exitBlock = BasicBlock::Create(*context, "exit");
         builder.SetInsertPoint(entryBlock);
-        const auto& cacheFunction = cache->getFunction(instantiation.name);
-        LocalSymbols parameters;
         for (std::size_t index = 0; const auto& param : cacheFunction.parameters) {
             Value *paramValue = makeMutableValue(*this, instantiation.parameterTypes.at(index));
-            parameters.add(param.get(), paramValue, instantiation.parameterTypes.at(index));
+            parameters.setValue(index, paramValue);
             storeMutableValue(*this, paramValue, currentFunction->getArg(index));
             ++index;
         }
@@ -119,10 +127,6 @@ void JIT::initialize() {
             Value *returnValue = makeMutableValue(*this, instantiation.returnType);
             parameters.add(RETURN_V, returnValue, instantiation.returnType);
         }
-        TypeCodeGen typeGen(runtimeContext, cache, &parameters,
-            (cacheFunction.parameters.size() > 0 && cacheFunction.parameters.at(0).get() == THIS_V)
-            ? TypeCodeGen::Method : TypeCodeGen::FreeFunction);
-        typeGen(cacheFunction.body);
         StmtCodeGen stmt(*this, nullptr, &parameters, exitBlock);
         stmt(cacheFunction.body);
         if (!dynamic_cast<const ReturnStmt*>(cacheFunction.body.back().get())) {
@@ -146,7 +150,6 @@ void JIT::initialize() {
 
 ExecFunctionType JIT::getExecFunction() {
     builder.CreateRetVoid();
-    cache->clearInstantiations();
     //verifyModule(*module, &errs());
     InitializeNativeTarget();
     InitializeNativeTargetAsmPrinter();
@@ -175,7 +178,7 @@ ExecFunctionType JIT::getExecFunction() {
             RUNTIME_FUNCTION("makeString", &makeString),
             RUNTIME_FUNCTION("makeInstance", &makeInstance),
             RUNTIME_FUNCTION("opComplex", &opComplex),
-            RUNTIME_FUNCTION("compareString", &concatString),
+            RUNTIME_FUNCTION("compareString", &compareString),
             RUNTIME_FUNCTION("concatString", &concatString),
             RUNTIME_FUNCTION("cloneComplex", &cloneComplex),
             RUNTIME_FUNCTION("cloneString", &cloneString),

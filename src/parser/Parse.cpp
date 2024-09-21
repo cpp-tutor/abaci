@@ -5,7 +5,6 @@
 #include "utility/Operator.hpp"
 #include "utility/Report.hpp"
 #include "utility/Constant.hpp"
-#include "utility/Variable.hpp"
 #include "ast/Expr.hpp"
 #include "ast/Stmt.hpp"
 #include <boost/spirit/home/x3.hpp>
@@ -33,11 +32,11 @@ using abaci::utility::Operator;
 using abaci::utility::Operators;
 using abaci::utility::Complex;
 using abaci::utility::String;
-using abaci::utility::Variable;
 using abaci::utility::TypeConversions;
 
 using abaci::ast::ExprNode;
 using abaci::ast::ExprList;
+using abaci::ast::Variable;
 using abaci::ast::FunctionValueCall;
 using abaci::ast::DataMember;
 using abaci::ast::MethodValueCall;
@@ -75,13 +74,13 @@ struct error_handler {
         auto& error_handler = x3::get<x3::error_handler_tag>(context).get();
         std::string message;
         if (x.which().size() < 32) {
-            message = "Error! Expecting: " + x.which() + " here:";
+            message = "Expecting \'" + x.which().substr(1, x.which().size() - 2) + "\'.";
         }
         else if (x.which().find("ExprNode") != std::string::npos) {
-            message = "Error! Invalid expression here:";
+            message = "Found an invalid expression.";
         }
         else {
-            message = "Error! Syntax error here:";
+            message = "Encountered a syntax error.";
         }
         error_handler(x.where(), message);
         return x3::error_handler_result::fail;
@@ -179,9 +178,13 @@ struct factor_class : x3::annotate_on_success {};
 struct unary_class : x3::annotate_on_success {};
 struct index_class : x3::annotate_on_success {};
 
-x3::rule<class identifier, std::string> const identifier;
-x3::rule<class variable, Variable> const variable;
-x3::rule<class this_ptr, Variable> const this_ptr;
+struct identifier_class;
+struct variable_class;
+struct this_ptr_class;
+
+x3::rule<class identifier_class, std::string> const identifier;
+x3::rule<class variable_class, Variable> const variable;
+x3::rule<class this_ptr_class, Variable> const this_ptr;
 x3::rule<class function_value_call, FunctionValueCall> const function_value_call;
 x3::rule<class data_value_call, DataMember> const data_value_call;
 x3::rule<class this_value_call, DataMember> const this_value_call;
@@ -190,6 +193,10 @@ x3::rule<class this_method_call, MethodValueCall> const this_method_call;
 x3::rule<class user_input, UserInput> const user_input;
 x3::rule<class type_conversion_items, TypeConvItems> const type_conversion_items;
 x3::rule<class type_conversion, TypeConv> const type_conversion;
+
+struct identitifer_class : x3::annotate_on_success {};
+struct variable_class : x3::annotate_on_success {};
+struct this_ptr_class : x3::annotate_on_success {};
 
 struct comment_items_class;
 struct comment_class;
@@ -372,11 +379,6 @@ auto makeString = [](auto& ctx) {
     _val(ctx) = ConstantsTable()->add(str);
 };
 
-auto makeVariable = [](auto& ctx){
-    const std::string str = _attr(ctx);
-    _val(ctx) = Variable(str);
-};
-
 auto makeThisPtr = [](auto& ctx){
     _val(ctx) = Variable(THIS_V);
 };
@@ -459,7 +461,7 @@ const auto to_def = string(TO)[getOperator];
 
 const auto identifier_def = lexeme[( ( char_('A', 'Z') | char_('a', 'z') | char_('\'') | char_('\200', '\377') )
     >> *( char_('A', 'Z') | char_('a', 'z') | char_('0', '9') | char_('_') | char_('\'') | char_('\200', '\377') ) ) - keywords];
-const auto variable_def = identifier[makeVariable];
+const auto variable_def = identifier;
 const auto this_ptr_def = lit(THIS)[makeThisPtr];
 const auto function_value_call_def = identifier >> call_args;
 const auto data_value_call_def = variable >> +( DOT >> variable );
@@ -546,7 +548,7 @@ const auto method_call_def = this_call_items[MakeStmt<MethodCall>()] | method_ca
 const auto expression_stmt_items_def = expression;
 const auto expression_stmt_def = expression_stmt_items[MakeStmt<ExpressionStmt>()];
 
-const auto statement_def = assign_stmt | method_call | data_assign_stmt | function_call | print_stmt | expression_function | let_stmt | if_stmt | while_stmt | repeat_stmt | case_stmt | return_stmt | function | class_template | expression_stmt | comment;
+const auto statement_def = data_assign_stmt | method_call | assign_stmt | function_call | print_stmt | expression_function | let_stmt | if_stmt | while_stmt | repeat_stmt | case_stmt | return_stmt | function | class_template | expression_stmt | comment;
 const auto block_def = *statement;
 
 BOOST_SPIRIT_DEFINE(number_str, base_number_str, boolean_str, string_str, value)
@@ -569,10 +571,9 @@ BOOST_SPIRIT_DEFINE(identifier, variable, function_value_call, data_value_call, 
     this_ptr, this_assign_items, this_call_items,
     method_call_items, method_call, expression_stmt_items, expression_stmt, statement, block)
 
-bool parseBlock(const std::string& block_str, StmtList& ast, std::ostream& error, Constants *constants) {
+bool parseBlock(const std::string& block_str, StmtList& ast, std::ostream& error, std::string::const_iterator& iter, Constants *constants) {
     ConstantsTable(constants);
-    auto iter = block_str.begin();
-    auto end = block_str.end();
+    auto end = block_str.cend();
     using error_handler_type = x3::error_handler<std::string::const_iterator>;
     error_handler_type error_handler(iter, end, error);
     const auto parser = x3::with<x3::error_handler_tag>(std::ref(error_handler))[block];
@@ -581,15 +582,13 @@ bool parseBlock(const std::string& block_str, StmtList& ast, std::ostream& error
     return result;
 }
 
-bool parseStatement(std::string& stmt_str, StmtNode& ast, std::ostream& error, Constants *constants) {
+bool parseStatement(const std::string& stmt_str, StmtNode& ast, std::ostream& error, std::string::const_iterator& iter, Constants *constants) {
     ConstantsTable(constants);
-    auto iter = stmt_str.begin();
-    auto end = stmt_str.end();
+    auto end = stmt_str.cend();
     using error_handler_type = x3::error_handler<std::string::const_iterator>;
     error_handler_type error_handler(iter, end, error);
     const auto parser = x3::with<x3::error_handler_tag>(std::ref(error_handler))[statement];
     bool result = phrase_parse(iter, end, parser, space, ast);
-    stmt_str = std::string(iter, end);
     ConstantsTable(nullptr);
     return result;
 }

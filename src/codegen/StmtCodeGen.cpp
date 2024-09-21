@@ -145,9 +145,9 @@ void StmtCodeGen::codeGen(const InitStmt& define) const {
     expr(define.value);
     auto result = expr.get();
     if (locals) {
-        auto index = locals->getIndex(define.name.get(), true).second;
+        auto index = locals->getIndex(define.name.name, true).second;
         if (index == LocalSymbols::noVariable) {
-            UnexpectedError1(VarNotExist, define.name.get());
+            UnexpectedError1(VarNotExist, define.name.name);
         }
         else if (define.assign == Operator::Equal) {
             Assert(locals->getType(index) == addConstToType(result.second));
@@ -165,9 +165,9 @@ void StmtCodeGen::codeGen(const InitStmt& define) const {
     }
     else {
         auto globals = jit.getRuntimeContext().globals;
-        auto globalIndex = globals->getIndex(define.name.get());
+        auto globalIndex = globals->getIndex(define.name.name);
         if (globalIndex == GlobalSymbols::noVariable) {
-            UnexpectedError1(VarNotExist, define.name.get());
+            UnexpectedError1(VarNotExist, define.name.name);
         }
         else if (define.assign == Operator::Equal) {
             Assert(globals->getType(globalIndex) == addConstToType(result.second));
@@ -190,10 +190,10 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
     ExprCodeGen expr(jit, locals, temps);
     expr(assign.value);
     auto result = expr.get();
-    auto [ vars, index ] = locals ? locals->getIndex(assign.name.get()) : std::pair{ nullptr, LocalSymbols::noVariable };
+    auto [ vars, index ] = locals ? locals->getIndex(assign.name.name) : std::pair{ nullptr, LocalSymbols::noVariable };
     if (index != LocalSymbols::noVariable) {
         if (isConstant(vars->getType(index))) {
-            UnexpectedError1(NoConstantAssign, assign.name.get());
+            UnexpectedError1(NoConstantAssign, assign.name.name);
         }
         Assert(vars->getType(index) == result.second);
         destroyValue(jit, loadMutableValue(jit, vars->getValue(index), result.second), result.second);
@@ -207,12 +207,12 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
     }
     else {
         auto globals = jit.getRuntimeContext().globals;
-        auto globalIndex = globals->getIndex(assign.name.get());
+        auto globalIndex = globals->getIndex(assign.name.name);
         if (globalIndex == GlobalSymbols::noVariable) {
-            UnexpectedError1(VarNotExist, assign.name.get());
+            UnexpectedError1(VarNotExist, assign.name.name);
         }
         else if (isConstant(globals->getType(globalIndex))) {
-            UnexpectedError1(NoConstantAssign, assign.name.get());
+            UnexpectedError1(NoConstantAssign, assign.name.name);
         }
         destroyValue(jit, loadGlobalValue(jit, globalIndex, result.second), result.second);
         Assert(globals->getType(globalIndex) == result.second);
@@ -331,7 +331,7 @@ void StmtCodeGen::codeGen(const CaseStmt& caseStmt) const {
                 isMatch = builder.CreateCall(module.getFunction("compareString"), { whenResult.first, matchResult.first });
                 break;
             default:
-                LogicError0(BadType);
+                UnexpectedError0(BadType);
         }
         builder.CreateCondBr(isMatch, caseBlocks.at(blockNumber * 2 + 1), caseBlocks.at(blockNumber * 2 + 2));
         builder.SetInsertPoint(caseBlocks.at(blockNumber * 2 + 1));
@@ -398,7 +398,7 @@ void StmtCodeGen::codeGen([[maybe_unused]] const Class& classTemplate) const {
 
 template<>
 void StmtCodeGen::codeGen(const DataAssignStmt& dataAssign) const {
-    const std::string& name = dataAssign.name.get();
+    const std::string& name = dataAssign.name.name;
     Type type;
     ExprCodeGen expr(jit, locals, temps);
     expr(dataAssign.value);
@@ -475,7 +475,7 @@ void StmtCodeGen::codeGen(const DataAssignStmt& dataAssign) const {
 
 template<>
 void StmtCodeGen::codeGen(const MethodCall& methodCall) const {
-    const std::string& name = methodCall.name.get();
+    const std::string& name = methodCall.name.name;
     Type type;
     Value *thisPtr = nullptr;
     if (locals) {

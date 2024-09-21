@@ -56,6 +56,7 @@ struct TypeList : TypeBase {
 };
 
 AbaciValue::Type typeToScalar(const Type& type);
+const std::string& typeToString(const Type& type);
 bool isConstant(const Type& type);
 Type addConstToType(const Type& type);
 Type removeConstFromType(const Type& type);

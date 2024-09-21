@@ -28,6 +28,16 @@ AbaciValue::Type typeToScalar(const Type& type) {
     }
 }
 
+const std::string& typeToString(const Type& type) {
+    auto scalarType = typeToScalar(removeConstFromType(type));
+    for (const auto& item : TypeConversions) {
+        if (item.second == scalarType) {
+            return item.first;
+        }
+    }
+    UnexpectedError0(BadType);
+}
+
 bool isConstant(const Type& type) {
     if (std::holds_alternative<AbaciValue::Type>(type)) {
         return std::get<AbaciValue::Type>(type) & AbaciValue::Constant;
@@ -174,6 +184,7 @@ bool operator==(const Type& lhs, const Type& rhs) {
 }
     
 const std::unordered_map<std::string,AbaciValue::Type> TypeConversions{
+    { BOOL, AbaciValue::Boolean },
     { INT, AbaciValue::Integer },
     { FLOAT, AbaciValue::Floating },
     { COMPLEX, AbaciValue::Complex },

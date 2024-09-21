@@ -27,7 +27,7 @@ void destroyComplex(Complex *object);
 void destroyString(String *object);
 void destroyInstance(Instance *object);
 
-int compareString(String *str1, String *str2);
+bool compareString(String *str1, String *str2);
 String *concatString(String *str1, String *str2);
 Complex *opComplex(Operator op, Complex *operand1, Complex *operand2);
 

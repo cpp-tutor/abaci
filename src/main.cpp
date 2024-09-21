@@ -25,25 +25,57 @@ using fmt::print;
 using fmt::runtime;
 #endif
 
+using abaci::ast::StmtNode;
+using abaci::ast::StmtList;
+using abaci::codegen::StmtCodeGen;
+using abaci::codegen::TypeCodeGen;
+using abaci::engine::Cache;
+using abaci::engine::JIT;
+using abaci::parser::parseBlock;
+using abaci::parser::parseStatement;
+using abaci::parser::testStatement;
+using abaci::utility::Constants;
+using abaci::utility::Context;
+using abaci::utility::Temporaries;
+
+std::string processError(std::string&& errorString) {
+    const std::string inLine = "In line";
+    if (auto multiple = errorString.find(inLine, 1); multiple != std::string::npos) {
+        errorString.resize(multiple);
+    }
+    if (errorString.starts_with(inLine)) {
+        errorString.replace(0, inLine.size(), ErrorInLine);
+    }
+    if (auto noNewline = errorString.find("\n"); noNewline != std::string::npos) {
+        errorString.replace(noNewline, 1, " ");
+    }
+    if (!errorString.ends_with("\n")) {
+        errorString.append("\n");
+    }
+    return errorString;
+}
+
 int main(const int argc, const char **argv) {
     if (argc == 2) {
         std::ifstream inputFile{ argv[1] };
         if (inputFile) {
             std::string inputText;
             std::getline(inputFile, inputText, '\0');
-            abaci::ast::StmtList ast;
-            abaci::utility::Constants constants;
-            abaci::utility::Context context(std::cin, std::cout, std::cerr, constants);
-            abaci::engine::Cache functions;
-            abaci::utility::Temporaries temps;
+            StmtList ast;
+            Constants constants;
+            Context context(std::cin, std::cout, constants);
+            Cache functions;
+            Temporaries temps;
+            auto start = inputText.cbegin();
             try {
-                if (abaci::parser::parseBlock(inputText, ast, *(context.error), &constants)) {
-                    abaci::codegen::TypeCodeGen typeGen(&context, &functions);
+                std::ostringstream error;
+                if (parseBlock(inputText, ast, error, start, &constants)) {
+                    TypeCodeGen typeGen(&context, &functions);
                     for (const auto& stmt : ast) {
                         typeGen(stmt);
                     }
-                    abaci::engine::JIT jit("Abaci", "program", &context, &functions);
-                    abaci::codegen::StmtCodeGen codeGen(jit, &temps);
+                    JIT jit("Abaci", "program", &context, &functions);
+                    StmtCodeGen codeGen(jit, &temps);
                     for (const auto& stmt : ast) {
                         codeGen(stmt);
                         temps.destroyTemporaries(jit);
@@ -54,7 +86,8 @@ int main(const int argc, const char **argv) {
                     return 0;
                 }
                 else {
-                    LogicError0(BadParse);
+                    print(std::cerr, "{}", processError(error.str()));
+                    return 1;
                 }
             }
             catch (std::exception& error) {
@@ -63,7 +96,7 @@ int main(const int argc, const char **argv) {
             }
         }
     }
-    std::string input;
+    std::string input, line{ "\n" };
 #ifdef ABACI_USE_STD_FORMAT
     std::cout << vformat(InitialPrompt, make_format_args(Version, EXIT));
 #else
@@ -71,25 +104,28 @@ int main(const int argc, const char **argv) {
 #endif
     std::getline(std::cin, input);
 
-    abaci::ast::StmtNode ast;
-    abaci::utility::Constants constants;
-    abaci::utility::Context context(std::cin, std::cout, std::cerr, constants);
-    abaci::engine::Cache functions;
-    abaci::utility::Temporaries temps;
+    StmtNode ast;
+    Constants constants;
+    Context context(std::cin, std::cout, constants);
+    Cache functions;
+    Temporaries temps;
     while (!std::cin.eof() && !input.ends_with(EXIT)) {
-        std::string moreInput = "\n";
-        while (!std::cin.eof() && !abaci::parser::testStatement(input) && !moreInput.empty()) {
+        while (!std::cin.eof() && !testStatement(input) && !line.empty()) {
             print(std::cout, "{}", ContinuationPrompt);
-            std::getline(std::cin, moreInput);
-            input += '\n' + moreInput;
+            std::getline(std::cin, line);
+            if (!line.empty()) {
+                input += '\n' + line;
+            }
         }
-        if (abaci::parser::testStatement(input)) {
-            while (!input.empty() && abaci::parser::parseStatement(input, ast, *(context.error), &constants)) {
+        auto start = input.cbegin();
+        if (testStatement(input)) {
+            std::ostringstream error;
+            while (start != input.cend() && parseStatement(input, ast, error, start, &constants)) {
                 try {
-                    abaci::codegen::TypeCodeGen typeGen(&context, &functions);
+                    TypeCodeGen typeGen(&context, &functions);
                     typeGen(ast);
-                    abaci::engine::JIT jit("Abaci", "program", &context, &functions);
-                    abaci::codegen::StmtCodeGen codeGen(jit, &temps);
+                    JIT jit("Abaci", "program", &context, &functions);
+                    StmtCodeGen codeGen(jit, &temps);
                     codeGen(ast);
                     temps.destroyTemporaries(jit);
                     temps.clear();
@@ -97,20 +133,26 @@ int main(const int argc, const char **argv) {
                     stmtFunction();
                 }
                 catch (std::exception& error) {
-                    print(std::cout, "{}\n", error.what());
+                    print(std::cerr, "{}\n", error.what());
+                    start = input.cend();
+                    break;
                 }
             }
-            moreInput = input;
+            if (!error.str().empty()) {
+                print(std::cerr, "{}", processError(error.str()));
+                start = input.cend();
+            }
         }
         else {
-            print(std::cout, "{}\n", SyntaxError);
-            moreInput.clear();
+            StmtList dummy;
+            std::ostringstream error;
+            parseBlock(input, dummy, error, start, nullptr);
+            print(std::cerr, "{}", processError(error.str()));
+            start = input.cend();
         }
-        print(std::cout, "{}", moreInput.empty() ? InputPrompt : ContinuationPrompt);
+        print(std::cout, "{}", (start == input.cend()) ? InputPrompt : ContinuationPrompt);
         std::getline(std::cin, input);
-        if (!moreInput.empty()) {
-            input = moreInput + '\n' + input;
-        }
+        line = "\n";
     }
     return 0;
 }

@@ -2,7 +2,6 @@
 #define Stmt_hpp
 
 #include "Expr.hpp"
-#include "utility/Variable.hpp"
 #include "utility/Symbol.hpp"
 #include "utility/Temporary.hpp"
 #include <boost/fusion/adapted/struct.hpp>
@@ -19,21 +18,20 @@ using boost::spirit::x3::position_tagged;
 
 class StmtNode;
 
-struct StmtList : std::vector<StmtNode>, LocalSymbols, Temporaries, position_tagged {};
+struct StmtList : std::vector<StmtNode>, LocalSymbols, Temporaries {};
 
-using abaci::utility::Variable;
 using abaci::utility::Operator;
 
-struct StmtData : position_tagged {
+struct StmtData {
     virtual ~StmtData() {}
 };
 
-class StmtNode : position_tagged {
+class StmtNode {
 public:
     StmtNode() = default;
     StmtNode(const StmtNode&) = default;
     StmtNode& operator=(const StmtNode&) = default;
-    StmtNode(StmtData *nodeImpl) : position_tagged(static_cast<position_tagged&>(*nodeImpl)) { data.reset(nodeImpl); }
+    StmtNode(StmtData *nodeImpl) { data.reset(nodeImpl); }
     const StmtData *get() const { return data.get(); }
 private:
     std::shared_ptr<StmtData> data;

@@ -61,6 +61,9 @@ public:
         return type;
     }
     ExecFunctionType getExecFunction();
+    ~JIT() {
+        cache->clearInstantiations();
+    }
 };
 
 } // namespace abaci::engine

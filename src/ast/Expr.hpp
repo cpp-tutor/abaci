@@ -4,7 +4,6 @@
 #include "utility/Type.hpp"
 #include "utility/Operator.hpp"
 #include "utility/Constant.hpp"
-#include "utility/Variable.hpp"
 #include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
 #include <boost/fusion/adapted/struct.hpp>
 #include <vector>
@@ -18,11 +17,19 @@ using boost::spirit::x3::position_tagged;
 using abaci::utility::AbaciValue;
 using abaci::utility::Constants;
 using abaci::utility::Operator;
-using abaci::utility::Variable;
 
 class ExprNode;
 
 using ExprList = std::vector<ExprNode>;
+
+struct Variable : position_tagged {
+    Variable() = default;
+    Variable(const std::string& name) : name{ name } {}
+    bool operator==(const Variable& other) const {
+        return name == other.name;
+    }
+    std::string name;
+};
 
 struct FunctionValueCall : position_tagged {
     std::string name;
@@ -50,8 +57,7 @@ struct TypeConv : position_tagged {
     std::shared_ptr<ExprNode> expression;
 };
 
-class ExprNode : position_tagged {
-public:
+struct ExprNode : position_tagged {
     enum Association { Unset, Left, Right, Unary, Boolean };
     enum Type { UnsetNode, ValueNode, OperatorNode, ListNode, VariableNode, FunctionNode, DataMemberNode, MethodNode, InputNode, TypeConvNode };
     std::variant<std::monostate,std::size_t,Operator,std::pair<Association,ExprList>,Variable,FunctionValueCall,DataMember,MethodValueCall,UserInput,TypeConv> data;
@@ -65,6 +71,7 @@ struct TypeConvItems {
 } // namespace abaci::ast
 
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExprNode, data)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Variable, name)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::FunctionValueCall, name, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataMember, name, memberList)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodValueCall, name, memberList, method, args)

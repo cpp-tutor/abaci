@@ -22,7 +22,7 @@ using abaci::ast::StmtList;
 using abaci::engine::Cache;
 using abaci::utility::AbaciValue;
 using abaci::utility::Type;
-using abaci::utility::Variable;
+using abaci::ast::Variable;
 using abaci::utility::Context;
 using abaci::utility::LocalSymbols;
 using abaci::utility::Temporaries;

@@ -4,6 +4,7 @@
 #define SYMBOL(TOKEN, VALUE) inline const char *TOKEN = reinterpret_cast<const char *>(u8##VALUE)
 
 SYMBOL(AND, "and");
+SYMBOL(BOOL, "bool");
 SYMBOL(CASE, "case");
 SYMBOL(CLASS, "class");
 SYMBOL(COMPLEX, "complex");
@@ -45,7 +46,7 @@ SYMBOL(FLOOR_DIVIDE, "//");
 SYMBOL(EXPONENT, "**");
 
 SYMBOL(EQUAL, "=");
-SYMBOL(NOT_EQUAL, "/=");
+SYMBOL(NOT_EQUAL, "!=");
 SYMBOL(LESS, "<");
 SYMBOL(LESS_EQUAL, "<=");
 SYMBOL(GREATER_EQUAL, ">=");

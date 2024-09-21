@@ -39,6 +39,9 @@ using abaci::utility::GlobalSymbols;
 using abaci::utility::isConstant;
 using abaci::utility::removeConstFromType;
 using abaci::utility::addConstToType;
+using abaci::utility::typeToScalar;
+using abaci::utility::typeToString;
+using abaci::utility::operatorToString;
 using abaci::utility::TypeInstance;
 using abaci::utility::TypeBase;
 using abaci::utility::ValidConversions;
@@ -57,11 +60,62 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                     for (auto iter = ++expr.begin(); iter != expr.end();) {
                         auto op = std::get<Operator>(iter++->data);
                         (*this)(*iter++);
-                        auto newType = promote(type, pop());
-                        if (newType == AbaciValue::Integer && op == Operator::Divide) {
-                            newType = AbaciValue::Floating;
+                        type = promote(type, pop());
+                        switch (typeToScalar(type)) {
+                            case AbaciValue::None:
+                                break;
+                            case AbaciValue::Boolean:
+                                switch (op) {
+                                    case Operator::BitAnd:
+                                    case Operator::BitXor:
+                                    case Operator::BitOr:
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
+                                break;
+                            case AbaciValue::Integer:
+                                switch (op) {
+                                    case Operator::Plus:
+                                    case Operator::Minus:
+                                    case Operator::Times:
+                                    case Operator::Modulo:
+                                    case Operator::FloorDivide:
+                                    case Operator::BitAnd:
+                                    case Operator::BitXor:
+                                    case Operator::BitOr:
+                                        break;
+                                    case Operator::Divide:
+                                        type = AbaciValue::Floating;
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
+                                break;
+                            case AbaciValue::Floating:
+                            case AbaciValue::Complex:
+                                switch (op) {
+                                    case Operator::Plus:
+                                    case Operator::Minus:
+                                    case Operator::Times:
+                                    case Operator::Divide:
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
+                                break;
+                            case AbaciValue::String:
+                                switch (op) {
+                                    case Operator::Plus:
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
+                                break;
+                            default:
+                                LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                break;
                         }
-                        type = newType;
                     }
                     push(type);
                     break;
@@ -71,10 +125,34 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                     (*this)(expr.back());
                     auto type = pop();
                     for (auto iter = ++expr.rbegin(); iter != expr.rend();) {
-                        ++iter;
+                        auto op = std::get<Operator>(iter++->data);
                         (*this)(*iter++);
-                        type = promote(type, AbaciValue::Floating);
                         type = promote(type, pop());
+                        switch (typeToScalar(type)) {
+                            case AbaciValue::None:
+                                break;
+                            case AbaciValue::Integer:
+                                switch (op) {
+                                    case Operator::Exponent:
+                                        type = AbaciValue::Floating;
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
+                                break;
+                            case AbaciValue::Floating:
+                            case AbaciValue::Complex:
+                                switch (op) {
+                                    case Operator::Exponent:
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
+                                break;
+                            default:
+                                LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                break;
+                        }
                     }
                     push(type);
                     break;
@@ -85,8 +163,52 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                     auto type = pop();
                     for (auto iter = ++expr.rbegin(); iter != expr.rend();) {
                         auto op = std::get<Operator>(iter++->data);
-                        if (op == Operator::Not) {
-                            type = AbaciValue::Boolean;
+                        switch (typeToScalar(type)) {
+                            case AbaciValue::None:
+                                break;
+                            case AbaciValue::Boolean:
+                                switch (op) {
+                                    case Operator::Not:
+                                    case Operator::Compl:
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
+                                break;
+                            case AbaciValue::Integer:
+                                switch (op) {
+                                    case Operator::Not:
+                                        type = AbaciValue::Boolean;
+                                        break;
+                                    case Operator::Minus:
+                                    case Operator::Compl:
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
+                                break;
+                            case AbaciValue::Floating:
+                                switch (op) {
+                                    case Operator::Not:
+                                        type = AbaciValue::Boolean;
+                                        break;
+                                    case Operator::Minus:
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
+                                break;
+                            case AbaciValue::Complex:
+                                switch (op) {
+                                    case Operator::Minus:
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
+                                break;
+                            default:
+                                LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                break;
                         }
                     }
                     push(type);
@@ -96,14 +218,52 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                     const auto& expr = std::get<ExprNode::ListNode>(node.data).second;
                     (*this)(expr.front());
                     auto type = pop();
-                    if (expr.size() > 1) {
-                        type = AbaciValue::Boolean;
-                        for (auto iter = ++expr.begin(); iter != expr.end();) {
-                            ++iter;
-                            (*this)(*iter++);
-                        }
+                    if (expr.size() == 1) {
+                        push(type);
                     }
-                    push(type);
+                    else {
+                        for (auto iter = ++expr.begin(); iter != expr.end();) {
+                            auto op = std::get<Operator>(iter++->data);
+                            (*this)(*iter++);
+                            type = promote(type, pop());
+                            switch (typeToScalar(type)) {
+                                case AbaciValue::None:
+                                    break;
+                                case AbaciValue::Boolean:
+                                case AbaciValue::Integer:
+                                case AbaciValue::Floating:
+                                    switch (op) {
+                                        case Operator::Equal:
+                                        case Operator::NotEqual:
+                                        case Operator::Less:
+                                        case Operator::LessEqual:
+                                        case Operator::GreaterEqual:
+                                        case Operator::Greater:
+                                        case Operator::And:
+                                        case Operator::Or:
+                                            break;
+                                        default:
+                                            LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                    }
+                                    break;
+                                case AbaciValue::Complex:
+                                case AbaciValue::String:
+                                    switch (op) {
+                                        case Operator::Equal:
+                                        case Operator::NotEqual:
+                                            break;
+                                        default:
+                                            LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                    }
+                                    break;
+                                default:
+                                    LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                    break;
+                            }
+                        }
+                        type = AbaciValue::Boolean;
+                        push(type);
+                    }
                     break;
                 }
                 default:
@@ -112,18 +272,18 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
             break;
         }
         case ExprNode::VariableNode: {
-            const std::string& name = std::get<ExprNode::VariableNode>(node.data).get();
+            const Variable& variable = std::get<ExprNode::VariableNode>(node.data);
             if (locals) {
-                if (auto [ vars, index ] = locals->getIndex(name); index != LocalSymbols::noVariable) {
+                if (auto [ vars, index ] = locals->getIndex(variable.name); index != LocalSymbols::noVariable) {
                     push(removeConstFromType(vars->getType(index)));
                     return;
                 }
             }
-            if (auto globalIndex = context->globals->getIndex(name); globalIndex != GlobalSymbols::noVariable) {
+            if (auto globalIndex = context->globals->getIndex(variable.name); globalIndex != GlobalSymbols::noVariable) {
                 push(removeConstFromType(context->globals->getType(globalIndex)));
             }
             else {
-                LogicError1(VarNotExist, name);
+                LogicError1(VarNotExist, variable.name);
             }
             break;
         }
@@ -141,7 +301,7 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                     LocalSymbols params;
                     for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
                         auto type = *argType++;
-                        params.add(parameter.get(), nullptr, addConstToType(type));
+                        params.add(parameter.name, nullptr, addConstToType(type));
                     }
                     cache->addFunctionInstantiation(call.name, types, &params, context);
                     auto returnType = cache->getFunctionInstantiationType(call.name, types);
@@ -166,7 +326,7 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
         }
         case ExprNode::DataMemberNode: {
             const auto& data = std::get<ExprNode::DataMemberNode>(node.data);
-            const std::string& name = data.name.get();
+            const std::string& name = data.name.name;
             Type type;
             if (locals) {
                 if (auto [ vars, index ] = locals->getIndex(name); index != LocalSymbols::noVariable) {
@@ -205,7 +365,7 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
         }
         case ExprNode::MethodNode: {
             const auto& methodCall = std::get<ExprNode::MethodNode>(node.data);
-            const std::string& name = methodCall.name.get();
+            const std::string& name = methodCall.name.name;
             auto [ vars, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
             Type type;
             if (index != LocalSymbols::noVariable) {
@@ -258,7 +418,7 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                 params.add(THIS_V, nullptr, type);
                 for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
                     auto type = *argType++;
-                    params.add(parameter.get(), nullptr, addConstToType(type));
+                    params.add(parameter.name, nullptr, addConstToType(type));
                 }
                 cache->addFunctionInstantiation(methodName, types, &params, context);
                 auto returnType = cache->getFunctionInstantiationType(methodName, types);
@@ -363,25 +523,25 @@ void TypeCodeGen::codeGen(const InitStmt& define) const {
     TypeEvalGen expr(context, cache, locals);
     expr(define.value);
     if (locals) {
-        if (locals->getIndex(define.name.get(), true).second != LocalSymbols::noVariable) {
-            LogicError1(VarExists, define.name.get());
+        if (locals->getIndex(define.name.name, true).second != LocalSymbols::noVariable) {
+            LogicError1(VarExists, define.name.name);
         }
         else if (define.assign == Operator::Equal) {
-            locals->add(define.name.get(), nullptr, addConstToType(expr.get()));
+            locals->add(define.name.name, nullptr, addConstToType(expr.get()));
         }
         else {
-            locals->add(define.name.get(), nullptr, expr.get());
+            locals->add(define.name.name, nullptr, expr.get());
         }
     }
     else {
-        if (context->globals->getIndex(define.name.get()) != GlobalSymbols::noVariable) {
-            LogicError1(VarExists, define.name.get());
+        if (context->globals->getIndex(define.name.name) != GlobalSymbols::noVariable) {
+            LogicError1(VarExists, define.name.name);
         }
         else if (define.assign == Operator::Equal) {
-            Assert(context->rawArray.add() == context->globals->add(define.name.get(), addConstToType(expr.get())));
+            Assert(context->rawArray.add() == context->globals->add(define.name.name, addConstToType(expr.get())));
         }
         else {
-            Assert(context->rawArray.add() == context->globals->add(define.name.get(), expr.get()));
+            Assert(context->rawArray.add() == context->globals->add(define.name.name, expr.get()));
         }
     }
 }
@@ -390,25 +550,25 @@ template<>
 void TypeCodeGen::codeGen(const AssignStmt& assign) const {
     TypeEvalGen expr(context, cache, locals);
     expr(assign.value);
-    auto [ vars, index ] = locals ? locals->getIndex(assign.name.get()) : std::pair{ nullptr, LocalSymbols::noVariable };
+    auto [ vars, index ] = locals ? locals->getIndex(assign.name.name) : std::pair{ nullptr, LocalSymbols::noVariable };
     if (index != LocalSymbols::noVariable) {
         if (isConstant(vars->getType(index))) {
-            LogicError1(NoConstantAssign, assign.name.get());
+            LogicError1(NoConstantAssign, assign.name.name);
         }
         else if (vars->getType(index) != expr.get()) {
-            LogicError1(VarType, assign.name.get());
+            LogicError1(VarType, assign.name.name);
         }
     }
     else {
-        auto globalIndex = context->globals->getIndex(assign.name.get());
+        auto globalIndex = context->globals->getIndex(assign.name.name);
         if (globalIndex == GlobalSymbols::noVariable) {
-            LogicError1(VarNotExist, assign.name.get());
+            LogicError1(VarNotExist, assign.name.name);
         }
         else if (isConstant(context->globals->getType(globalIndex))) {
-            LogicError1(NoConstantAssign, assign.name.get());
+            LogicError1(NoConstantAssign, assign.name.name);
         }
         else if (context->globals->getType(globalIndex) != expr.get()) {
-            LogicError1(VarType, assign.name.get());
+            LogicError1(VarType, assign.name.name);
         }
     }
 }
@@ -439,6 +599,16 @@ template<>
 void TypeCodeGen::codeGen(const CaseStmt& caseStmt) const {
     TypeEvalGen expr(context, cache, locals);
     expr(caseStmt.caseValue);
+    switch (typeToScalar(removeConstFromType(expr.get()))) {
+        case AbaciValue::Boolean:
+        case AbaciValue::Integer:
+        case AbaciValue::Floating:
+        case AbaciValue::Complex:
+        case AbaciValue::String:
+            break;
+        default:
+            LogicError0(BadType);
+    }
     for (const auto& when : caseStmt.matches) {
         TypeEvalGen expr(context, cache, locals);
         expr(when.expression);
@@ -469,7 +639,7 @@ void TypeCodeGen::codeGen(const FunctionCall& functionCall) const {
     LocalSymbols params;
     for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
         auto type = *argType++;
-        params.add(parameter.get(), nullptr, addConstToType(type));
+        params.add(parameter.name, nullptr, addConstToType(type));
     }
     cache->addFunctionInstantiation(functionCall.name, types, &params, context);
 }
@@ -511,7 +681,7 @@ void TypeCodeGen::codeGen(const Class& classTemplate) const {
 
 template<>
 void TypeCodeGen::codeGen(const DataAssignStmt& dataAssign) const {
-    const std::string& name = dataAssign.name.get();
+    const std::string& name = dataAssign.name.name;
     TypeEvalGen expr(context, cache, locals);
     expr(dataAssign.value);
     auto [ vars, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
@@ -560,7 +730,7 @@ void TypeCodeGen::codeGen(const DataAssignStmt& dataAssign) const {
 
 template<>
 void TypeCodeGen::codeGen(const MethodCall& methodCall) const {
-    const std::string& name = methodCall.name.get();
+    const std::string& name = methodCall.name.name;
     auto [ vars, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
     Type type;
     if (index != LocalSymbols::noVariable) {
@@ -613,7 +783,7 @@ void TypeCodeGen::codeGen(const MethodCall& methodCall) const {
         params.add(THIS_V, nullptr, instanceType);
         for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
             auto type = *argType++;
-            params.add(parameter.get(), nullptr, addConstToType(type));
+            params.add(parameter.name, nullptr, addConstToType(type));
         }
         cache->addFunctionInstantiation(methodName, types, &params, context);
     }

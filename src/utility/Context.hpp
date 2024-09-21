@@ -14,12 +14,12 @@ class Context {
 public:
     AbaciValue *rawGlobals{ nullptr };
     std::istream *input;
-    std::ostream *output, *error;
+    std::ostream *output;
     Constants *constants;
     GlobalSymbols *globals;
     RawArray<AbaciValue> rawArray;
-    Context(std::istream& input, std::ostream& output, std::ostream& error, Constants& constants)
-        : input{ &input }, output{ &output }, error{ &error }, constants{ &constants },
+    Context(std::istream& input, std::ostream& output, Constants& constants)
+        : input{ &input }, output{ &output }, constants{ &constants },
         globals{ new GlobalSymbols }, rawArray{ &rawGlobals } {}
     ~Context() {
         globals->deleteAll(rawGlobals);

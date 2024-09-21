@@ -12,6 +12,7 @@ using namespace llvm;
 
 using abaci::ast::ExprNode;
 using abaci::ast::ExprList;
+using abaci::ast::Variable;
 using abaci::utility::AbaciValue;
 using abaci::utility::Operator;
 using abaci::utility::TypeBase;
@@ -83,7 +84,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 result.first = builder.CreateOr(result.first, operand.first);
                                 break;
                             default:
-                                LogicError0(BadOperator);
+                                UnexpectedError0(BadOperator);
                         }
                         break;
                     case AbaciValue::Integer:
@@ -120,7 +121,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 result.first = builder.CreateOr(result.first, operand.first);
                                 break;
                             default:
-                                LogicError0(BadOperator);
+                                UnexpectedError0(BadOperator);
                         }
                         break;
                     case AbaciValue::Floating:
@@ -138,7 +139,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 result.first = builder.CreateFDiv(result.first, operand.first);
                                 break;
                             default:
-                                LogicError0(BadOperator);
+                                UnexpectedError0(BadOperator);
                         }
                         break;
                     case AbaciValue::Complex:
@@ -153,7 +154,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 temps->addTemporary({ result.first, type });
                                 break;
                             default:
-                                LogicError0(BadOperator);
+                                UnexpectedError0(BadOperator);
                         }
                         break;
                     case AbaciValue::String:
@@ -164,11 +165,11 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 temps->addTemporary({ result.first, type });
                                 break;
                             default:
-                                LogicError0(BadOperator);
+                                UnexpectedError0(BadOperator);
                         }
                         break;
                     default:
-                        LogicError0(BadType);
+                        UnexpectedError0(BadType);
                         break;
                 }
             }
@@ -195,7 +196,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 break;
                             }
                             default:
-                                LogicError0(BadOperator);
+                                UnexpectedError0(BadOperator);
                         }
                         break;
                     case AbaciValue::Floating:
@@ -204,7 +205,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 result.first = builder.CreateCall(module.getFunction("pow"), { operand.first, result.first });
                                 break;
                             default:
-                                LogicError0(BadOperator);
+                                UnexpectedError0(BadOperator);
                         }
                         break;
                     case AbaciValue::Complex:
@@ -216,11 +217,11 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 temps->addTemporary({ result.first, type });
                                 break;
                             default:
-                                LogicError0(BadOperator);
+                                UnexpectedError0(BadOperator);
                         }
                         break;
                 default:
-                    LogicError0(BadType);
+                    UnexpectedError0(BadType);
                     break;
                 }
             }
@@ -242,7 +243,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 result.first = builder.CreateNot(result.first);
                                 break;
                             default:
-                                LogicError0(BadOperator);
+                                UnexpectedError0(BadOperator);
                         }
                         break;
                     case AbaciValue::Integer:
@@ -258,7 +259,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 result.first = builder.CreateNot(result.first);
                                 break;
                             default:
-                                LogicError0(BadOperator);
+                                UnexpectedError0(BadOperator);
                         }
                         break;
                     case AbaciValue::Floating:
@@ -271,7 +272,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 result.second = AbaciValue::Boolean;
                                 break;
                             default:
-                                LogicError0(BadOperator);
+                                UnexpectedError0(BadOperator);
                         }
                         break;
                     case AbaciValue::Complex:
@@ -284,11 +285,11 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 break;
                             }
                             default:
-                                LogicError0(BadOperator);
+                                UnexpectedError0(BadOperator);
                         }
                         break;
                 default:
-                    LogicError0(BadType);
+                    UnexpectedError0(BadType);
                     break;
                 }
             }
@@ -337,7 +338,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                     boolResult = builder.CreateAnd(boolResult, builder.CreateOr(result.first, operand.first));
                                     break;
                                 default:
-                                    LogicError0(BadOperator);
+                                    UnexpectedError0(BadOperator);
                             }
                             break;
                         case AbaciValue::Integer:
@@ -367,7 +368,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                     boolResult = builder.CreateAnd(boolResult, builder.CreateOr(toBoolean(result), toBoolean(operand)));
                                     break;
                                 default:
-                                    LogicError0(BadOperator);
+                                    UnexpectedError0(BadOperator);
                             }
                             break;
                         case AbaciValue::Floating:
@@ -397,7 +398,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                     boolResult = builder.CreateAnd(boolResult, builder.CreateOr(toBoolean(result), toBoolean(operand)));
                                     break;
                                 default:
-                                    LogicError0(BadOperator);
+                                    UnexpectedError0(BadOperator);
                             }
                             break;
                         case AbaciValue::Complex: {
@@ -415,31 +416,29 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                         builder.CreateOr(builder.CreateFCmpONE(realValue1, realValue2), builder.CreateFCmpONE(imagValue1, imagValue2)));
                                     break;
                                 default:
-                                    LogicError0(BadOperator);
+                                    UnexpectedError0(BadOperator);
                             }
                             break;
                         }
                         case AbaciValue::String: {
-                            Value *str1Ptr = builder.CreateLoad(PointerType::get(builder.getInt8Ty(), 0), builder.CreateStructGEP(jit.getNamedType("struct.String"), result.first, 0));
-                            Value *str2Ptr = builder.CreateLoad(PointerType::get(builder.getInt8Ty(), 0), builder.CreateStructGEP(jit.getNamedType("struct.String"), operand.first, 0));
                             switch (op) {
                                 case Operator::Equal:
                                     boolResult = builder.CreateAnd(boolResult,
-                                        builder.CreateICmpEQ(ConstantInt::get(builder.getInt32Ty(), 0),
-                                        builder.CreateCall(module.getFunction("compareString"), { str1Ptr, str2Ptr })));
+                                        builder.CreateICmpEQ(ConstantInt::get(builder.getInt1Ty(), true),
+                                        builder.CreateCall(module.getFunction("compareString"), { result.first, operand.first })));
                                     break;
                                 case Operator::NotEqual:
                                     boolResult = builder.CreateAnd(boolResult,
-                                        builder.CreateICmpNE(ConstantInt::get(builder.getInt32Ty(), 0),
-                                        builder.CreateCall(module.getFunction("compareString"), { str1Ptr, str2Ptr })));
+                                        builder.CreateICmpEQ(ConstantInt::get(builder.getInt1Ty(), false),
+                                        builder.CreateCall(module.getFunction("compareString"), { result.first, operand.first })));
                                     break;
                                 default:
-                                    LogicError0(BadOperator);
+                                    UnexpectedError0(BadOperator);
                             }
                             break;
                         }
                         default:
-                            LogicError0(BadType);
+                            UnexpectedError0(BadType);
                             break;
                     }
                     result.first = operand.first;
@@ -458,9 +457,9 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
 
 template<>
 void ExprCodeGen::codeGen<ExprNode::VariableNode>(const ExprNode& node) const {
-    const std::string& name = std::get<ExprNode::VariableNode>(node.data).get();
+    const Variable& variable = std::get<ExprNode::VariableNode>(node.data);
     if (locals) {
-        auto [ vars, index ] = locals->getIndex(name);
+        auto [ vars, index ] = locals->getIndex(variable.name);
         if (index != LocalSymbols::noVariable) {
             auto type = removeConstFromType(vars->getType(index));
             Value *value = cloneValue(jit, loadMutableValue(jit, vars->getValue(index), type), type);
@@ -470,7 +469,7 @@ void ExprCodeGen::codeGen<ExprNode::VariableNode>(const ExprNode& node) const {
         }
     }
     auto globals = jit.getRuntimeContext().globals;
-    auto globalIndex = globals->getIndex(name);
+    auto globalIndex = globals->getIndex(variable.name);
     if (globalIndex != GlobalSymbols::noVariable) {
         auto type = removeConstFromType(globals->getType(globalIndex));
         Value *value = cloneValue(jit, loadGlobalValue(jit, globalIndex, type), type);
@@ -478,7 +477,7 @@ void ExprCodeGen::codeGen<ExprNode::VariableNode>(const ExprNode& node) const {
         push({ value, type });
     }
     else {
-        UnexpectedError1(VarNotExist, name);
+        UnexpectedError1(VarNotExist, variable.name);
     }
 }
 
@@ -535,7 +534,7 @@ void ExprCodeGen::codeGen<ExprNode::FunctionNode>(const ExprNode& node) const {
 template<>
 void ExprCodeGen::codeGen<ExprNode::DataMemberNode>(const ExprNode& node) const {
     const auto& data = std::get<ExprNode::DataMemberNode>(node.data);
-    const std::string& name = data.name.get();
+    const std::string& name = data.name.name;
     Type type;
     if (locals) {
         auto [ vars, index ] = locals->getIndex(name);
@@ -593,7 +592,7 @@ void ExprCodeGen::codeGen<ExprNode::DataMemberNode>(const ExprNode& node) const 
 template<>
 void ExprCodeGen::codeGen<ExprNode::MethodNode>(const ExprNode& node) const {
     const auto& methodCall = std::get<ExprNode::MethodNode>(node.data);
-    const std::string& name = methodCall.name.get();
+    const std::string& name = methodCall.name.name;
     Type type;
     Value *thisPtr = nullptr;
     if (locals) {

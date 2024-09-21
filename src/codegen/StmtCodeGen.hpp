@@ -19,7 +19,7 @@ using abaci::ast::StmtNode;
 using abaci::ast::StmtList;
 using abaci::engine::JIT;
 using abaci::utility::AbaciValue;
-using abaci::utility::Variable;
+using abaci::ast::Variable;
 using abaci::utility::Temporaries;
 using abaci::utility::LocalSymbols;
 using abaci::utility::TypedValue;

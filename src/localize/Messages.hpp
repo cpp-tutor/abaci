@@ -5,7 +5,7 @@
 
 MESSAGE(InstanceOf, "<Instance of {}>");
 MESSAGE(UnknownType, "Unknown type ({}).");
-MESSAGE(BadOperator, "Unknown operator in this context.");
+MESSAGE(BadOperator, "Unknown operator.");
 MESSAGE(BadConvType, "Bad type for conversion to this type.");
 MESSAGE(NeedType, "Must be \'{}\' type.");
 MESSAGE(BadConvTarget, "Bad target conversion type ({}).");
@@ -16,6 +16,7 @@ MESSAGE(VarType, "Existing variable \'{}\' has different type.");
 MESSAGE(BadNumericConv, "Bad numeric conversion when generating mangled name.");
 MESSAGE(BadChar, "Bad character in function name.");
 MESSAGE(BadType, "Bad type.");
+MESSAGE(BadOperatorForType, "Bad operator \'{}\' for type \'{}\'.");
 
 MESSAGE(ClassExists, "Class \'{}\' already exists.");
 MESSAGE(FunctionExists, "Function \'{}\' already exists.");
@@ -59,7 +60,7 @@ MESSAGE(InitialPrompt, "Abaci version {}\nEnter code, or \"{}\" to end:\n> ");
 MESSAGE(InputPrompt, "> ");
 MESSAGE(ContinuationPrompt, ". ");
 MESSAGE(SyntaxError, "Unrecognized input.");
-MESSAGE(Version, "0.0.3 (2024-Sep-19)");
+MESSAGE(Version, "0.0.4 (2024-Sep-21)");
 
 MESSAGE(BadVarIndex, "Bad index of variable.");
 MESSAGE(BadTemp, "Bad temporary.");
@@ -69,5 +70,6 @@ MESSAGE(AssertionFailed, "Assertion failed ({})");
 MESSAGE(SourceFile, "\nSource filename: {}");
 MESSAGE(LineNumber, ", Line number: {}");
 MESSAGE(NotRefThis, "Variable \'this\' cannot be used in this way.");
+MESSAGE(ErrorInLine, "Error in line");
 
 #endif
