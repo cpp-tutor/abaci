@@ -51,7 +51,7 @@ This project is currently under heavy development and should be considered pre-a
 * Homogenous lists (possibly multi-dimensional)
 * String indexing
 * Closures (major changes are likely needed)
-* Error reporting tidied up with more accurate location reporting
+* Error reporting tidied up *(completed)* with more accurate location reporting *(investigated and considered not possible)* 
 * Memory leaks closed *(completed)*
 * Unit tests of Abaci code
 
@@ -190,7 +190,9 @@ endclass
 
 ### Comments
 
+```
 \# This is a comment
+```
 
 ## Version history
 
@@ -199,6 +201,8 @@ endclass
 * **0.0.2** (2024-Sep-16): Second release with many changes and fixes, no known bugs
 
 * **0.0.3** (2024-Sep-19): Third release with Clang compatibility and more fixes
+
+* **0.0.4** (2024-Sep-21): Fourth release with stability and error message improvements
 
 ## License
 
