@@ -11,7 +11,7 @@ To build this project requires:
 * A C++ compiler, tested only with `g++` version 12.2.0, Visual Studio 2022 C++ and `clang++` version 14.0.6
 * The LLVM development libraries, built against version 14.0
 * The Boost headers, specifically Boost Spirit X3 in Boost 1.74
-* Headers and link-library of `libfmt`, built against version 10.2.1
+* Headers and link-library of fmt built against version 10.2.1
 
 This project was developed using Debian current stable (Bookworm).
 
@@ -31,17 +31,17 @@ To build with Clang it may be necessary to use C++20 (instead of C++23) in the C
 set(CMAKE_CXX_STANDARD 20)
 ```
 
-To build against C++23's `<format>` and `<print>` headers (if available) instead of libfmt, use `cmake .. -DCMAKE_CXX_FLAGS="-DABACI_USE_STD_FORMAT=1"`.
+To build against C++23's `<format>` and `<print>` headers (if available) instead of fmt, use `cmake .. -DABACI_USE_STD_FORMAT=1"`.
 
 Run `./abaci` without arguments to enter an interactive session, or with a source filename as the single argument to execute a script.
 
 To create the executable `abaci.exe` under Windows, using CMake and VS2022, first build LLVM from source. Then make a `build` directory at the same level as `src` and issue:
 
 ```bash
-"C:\Program Files\CMake\bin\cmake.exe" .. -A x64 -Thost=x64 -DLLVM_DIR=C:\Users\<username>\llvm-19.1.0\lib\cmake\llvm -DCMAKE_CXX_FLAGS="/IC:\Users\<username>\boost_1_85_0 /std:c++latest /EHsc /DABACI_USE_STD_FORMAT=1"
+"C:\Program Files\CMake\bin\cmake.exe" .. -A x64 -Thost=x64 -DLLVM_DIR=C:\Users\<path_to>\llvm-19.1.0\lib\cmake\llvm -DBoost_INCLUDE_DIR=C:\Users\<path_to>\boost_1_85_0 -DABACI_USE_STD_FORMAT=1 -DCMAKE_CXX_FLAGS="/std:c++latest /EHsc"
 ```
 
-(Replace `<username>` in each case with the correct path to LLVM and Boost.)
+(Replace `<path_to>` in each case with the correct path to LLVM and Boost.)
 
 ## Status
 
@@ -95,11 +95,11 @@ let d = [ 2, 3, 5, 7, 11 ]
 
 Math operators
 
-`+`, `-`, `*`, `/` (creates floating point when `% `non-zero), `%` (integer only), `//` (floor division)
+`+`, `-`, `*`, `/` (always creates floating point number), `%` (integer only), `//` (floor division), `**` (exponentiation)
 
 ### Comparison operators
 
-`=` (same as assign constant, but in different context), `/=`, `<`, `<=`, `>=`, `>`, `<`/`<=` value `<`/`<=`
+`=` (same as assign constant, but in different context), `!=`, `<`, `<=`, `>=`, `>`, `<`/`<=` value `<`/`<=`
 
 ### Decisions
 
@@ -177,7 +177,7 @@ b <- f(b)
 g()
 ```
 
-### Class definition (not yet fully implemented)
+### Class definition
 
 ```
 class c(x,y)
@@ -186,6 +186,9 @@ class c(x,y)
     print this.y * d
   endfn
 endclass
+
+let f <- c(2.2,3j)
+f.i(2.5)
 ```
 
 ### Comments
