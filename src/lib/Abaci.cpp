@@ -331,7 +331,8 @@ void printValue<String*>(Context *ctx, String *value) {
 template<>
 void printValue<Instance*>(Context *ctx, Instance *value) {
 #ifdef ABACI_USE_STD_FORMAT
-    *(ctx->output) << vformat(InstanceOf, make_format_args(reinterpret_cast<const char*>(value->className)));
+    const auto* className = reinterpret_cast<const char*>(value->className);
+    *(ctx->output) << vformat(InstanceOf, make_format_args(className));
 #else
     print(*(ctx->output), runtime(InstanceOf), reinterpret_cast<const char*>(value->className));
 #endif
