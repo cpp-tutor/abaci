@@ -15,14 +15,10 @@
 #ifdef ABACI_USE_STD_FORMAT
 #include <format>
 #include <print>
-using std::print;
-using std::vformat;
 #else
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
-using fmt::print;
-using fmt::runtime;
 #endif
 
 using abaci::ast::StmtNode;
@@ -86,21 +82,31 @@ int main(const int argc, const char **argv) {
                     return 0;
                 }
                 else {
-                    print(std::cerr, "{}", processError(error.str()));
+#ifdef ABACI_USE_STD_FORMAT
+                    std::print
+#else
+                    fmt::print
+#endif
+                    (std::cerr, "{}", processError(error.str()));
                     return 1;
                 }
             }
             catch (std::exception& error) {
-                print(std::cout, "{}\n", error.what());
+#ifdef ABACI_USE_STD_FORMAT
+                std::print
+#else
+                fmt::print
+#endif
+                (std::cout, "{}\n", error.what());
                 return 1;
             }
         }
     }
     std::string input, line{ "\n" };
 #ifdef ABACI_USE_STD_FORMAT
-    std::cout << vformat(InitialPrompt, make_format_args(Version, EXIT));
+    std::cout << std::vformat(InitialPrompt, std::make_format_args(Version, EXIT));
 #else
-    print(std::cout, runtime(InitialPrompt), Version, EXIT);
+    fmt::print(std::cout, fmt::runtime(InitialPrompt), Version, EXIT);
 #endif
     std::getline(std::cin, input);
 
@@ -111,7 +117,12 @@ int main(const int argc, const char **argv) {
     Temporaries temps;
     while (!std::cin.eof() && !input.ends_with(EXIT)) {
         while (!std::cin.eof() && !testStatement(input) && !line.empty()) {
-            print(std::cout, "{}", ContinuationPrompt);
+#ifdef ABACI_USE_STD_FORMAT
+            std::print
+#else
+            fmt::print
+#endif
+            (std::cout, "{}", ContinuationPrompt);
             std::getline(std::cin, line);
             if (!line.empty()) {
                 input += '\n' + line;
@@ -133,13 +144,23 @@ int main(const int argc, const char **argv) {
                     stmtFunction();
                 }
                 catch (std::exception& error) {
-                    print(std::cerr, "{}\n", error.what());
+#ifdef ABACI_USE_STD_FORMAT
+                    std::print
+#else
+                    fmt::print
+#endif
+                    (std::cerr, "{}\n", error.what());
                     start = input.cend();
                     break;
                 }
             }
             if (!error.str().empty()) {
-                print(std::cerr, "{}", processError(error.str()));
+#ifdef ABACI_USE_STD_FORMAT
+                std::print
+#else
+                fmt::print
+#endif
+                (std::cerr, "{}", processError(error.str()));
                 start = input.cend();
             }
         }
@@ -147,10 +168,20 @@ int main(const int argc, const char **argv) {
             StmtList dummy;
             std::ostringstream error;
             parseBlock(input, dummy, error, start, nullptr);
-            print(std::cerr, "{}", processError(error.str()));
+#ifdef ABACI_USE_STD_FORMAT
+            std::print
+#else
+            fmt::print
+#endif
+            (std::cerr, "{}", processError(error.str()));
             start = input.cend();
         }
-        print(std::cout, "{}", (start == input.cend()) ? InputPrompt : ContinuationPrompt);
+#ifdef ABACI_USE_STD_FORMAT
+        std::print
+#else
+        fmt::print
+#endif
+        (std::cout, "{}", (start == input.cend()) ? InputPrompt : ContinuationPrompt);
         std::getline(std::cin, input);
         line = "\n";
     }

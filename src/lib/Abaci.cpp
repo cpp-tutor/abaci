@@ -8,17 +8,10 @@
 #ifdef ABACI_USE_STD_FORMAT
 #include <format>
 #include <print>
-using std::print;
-using std::format;
-using std::vformat;
-using std::make_format_args;
 #else
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
-using fmt::print;
-using fmt::format;
-using fmt::runtime;
 #endif
 
 namespace abaci::lib {
@@ -250,18 +243,48 @@ AbaciValue toType(int toType, AbaciValue value, int fromType) {
             std::string str;
             switch (fromType) {
                 case AbaciValue::Boolean:
-                    str = format("{}", value.integer ? TRUE : FALSE);
+                    str =
+#ifdef ABACI_USE_STD_FORMAT
+                    std::format
+#else
+                    fmt::format
+#endif
+                    ("{}", value.integer ? TRUE : FALSE);
                     break;
                 case AbaciValue::Integer:
-                    str = format("{}", static_cast<long long>(value.integer));
+                    str =
+#ifdef ABACI_USE_STD_FORMAT
+                    std::format
+#else
+                    fmt::format
+#endif
+                    ("{}", static_cast<long long>(value.integer));
                     break;
                 case AbaciValue::Floating:
-                    str = format("{:.10g}", value.floating);
+                    str =
+#ifdef ABACI_USE_STD_FORMAT
+                    std::format
+#else
+                    fmt::format
+#endif
+                    ("{:.10g}", value.floating);
                     break;
                 case AbaciValue::Complex:
-                    str = format("{:.10g}", static_cast<Complex*>(value.object)->real);
+                    str =
+#ifdef ABACI_USE_STD_FORMAT
+                    std::format
+#else
+                    fmt::format
+#endif
+                    ("{:.10g}", static_cast<Complex*>(value.object)->real);
                     if (static_cast<Complex*>(value.object)->imag != 0) {
-                        str.append(format("{:+.10g}{}", static_cast<Complex*>(value.object)->imag, IMAGINARY));
+                        str.append(
+#ifdef ABACI_USE_STD_FORMAT
+                            std::format
+#else
+                            fmt::format
+#endif
+                            ("{:+.10g}{}", static_cast<Complex*>(value.object)->imag, IMAGINARY));
                     }
                     break;
                 case AbaciValue::String: {
@@ -302,24 +325,49 @@ AbaciValue toType(int toType, AbaciValue value, int fromType) {
 
 template<>
 void printValue<bool>(Context *ctx, bool value) {
-    print(*(ctx->output), "{}", (value ? TRUE : FALSE));
+#ifdef ABACI_USE_STD_FORMAT
+    std::print
+#else
+    fmt::print
+#endif
+    (*(ctx->output), "{}", (value ? TRUE : FALSE));
 }
 
 template<>
 void printValue<uint64_t>(Context *ctx, uint64_t value) {
-    print(*(ctx->output), "{}", static_cast<long long>(value));
+#ifdef ABACI_USE_STD_FORMAT
+    std::print
+#else
+    fmt::print
+#endif
+    (*(ctx->output), "{}", static_cast<long long>(value));
 }
 
 template<>
 void printValue<double>(Context *ctx, double value) {
-    print(*(ctx->output), "{:.10g}", value);
+#ifdef ABACI_USE_STD_FORMAT
+    std::print
+#else
+    fmt::print
+#endif
+    (*(ctx->output), "{:.10g}", value);
 }
 
 template<>
 void printValue<Complex*>(Context *ctx, Complex *value) {
-    print(*(ctx->output), "{:.10g}", value->real);
+#ifdef ABACI_USE_STD_FORMAT
+    std::print
+#else
+    fmt::print
+#endif
+    (*(ctx->output), "{:.10g}", value->real);
     if (value->imag != 0.0) {
-        print(*(ctx->output), "{:+.10g}{}", value->imag, IMAGINARY);
+#ifdef ABACI_USE_STD_FORMAT
+        std::print
+#else
+        fmt::print
+#endif
+        (*(ctx->output), "{:+.10g}{}", value->imag, IMAGINARY);
     }
 }
 
@@ -332,18 +380,28 @@ template<>
 void printValue<Instance*>(Context *ctx, Instance *value) {
 #ifdef ABACI_USE_STD_FORMAT
     const auto* className = reinterpret_cast<const char*>(value->className);
-    *(ctx->output) << vformat(InstanceOf, make_format_args(className));
+    *(ctx->output) << std::vformat(InstanceOf, std::make_format_args(className));
 #else
-    print(*(ctx->output), runtime(InstanceOf), reinterpret_cast<const char*>(value->className));
+    fmt::print(*(ctx->output), fmt::runtime(InstanceOf), reinterpret_cast<const char*>(value->className));
 #endif
 }
 
 void printComma(Context *ctx) {
-    print(*(ctx->output), "{}", ' ');
+#ifdef ABACI_USE_STD_FORMAT
+    std::print
+#else
+    fmt::print
+#endif
+    (*(ctx->output), "{}", ' ');
 }
 
 void printLn(Context *ctx) {
-    print(*(ctx->output), "{}", '\n');
+#ifdef ABACI_USE_STD_FORMAT
+    std::print
+#else
+    fmt::print
+#endif
+    (*(ctx->output), "{}", '\n');
 }
 
 } // namespace abaci::lib
