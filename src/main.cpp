@@ -182,7 +182,14 @@ int main(const int argc, const char **argv) {
         fmt::print
 #endif
         (std::cout, "{}", (start == input.cend()) ? InputPrompt : ContinuationPrompt);
-        std::getline(std::cin, input);
+        if (start != input.cend()) {
+            input.assign(start, input.cend());
+            std::getline(std::cin, line);
+            input += '\n' + line;
+        }
+        else {
+            std::getline(std::cin, input);
+        }
         line = "\n";
     }
     return 0;
