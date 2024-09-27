@@ -69,6 +69,7 @@ public:
     }
     void clear() {
         symbols.clear();
+        identifiers.clear();
     }
     void makeVariables(abaci::engine::JIT& jit);
     void destroyVariables(abaci::engine::JIT& jit);
