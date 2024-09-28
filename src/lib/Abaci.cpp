@@ -4,6 +4,7 @@
 #include "localize/Keywords.hpp"
 #include <complex>
 #include <charconv>
+#include <cstring>
 
 #ifdef ABACI_USE_STD_FORMAT
 #include <format>
@@ -25,21 +26,30 @@ Complex *makeComplex(double real, double imag) {
     return object;
 }
 
-String *makeString(char8_t *str, std::size_t len) {
+String *makeString(char8_t *str, std::size_t length) {
     auto *object = new String{};
-    object->ptr = new char8_t[len];
-    memcpy(object->ptr, str, len);
-    object->len = len;
+    object->ptr = new char8_t[length];
+    memcpy(object->ptr, str, length);
+    object->length = length;
     return object;
 }
 
 Instance *makeInstance(char8_t *className, std::size_t size) {
     auto *object = new Instance{};
-    auto len = strlen(reinterpret_cast<char*>(className));
-    object->className = new char8_t[len + 1];
+    auto length = strlen(reinterpret_cast<char*>(className));
+    object->className = new char8_t[length + 1];
     strcpy(reinterpret_cast<char*>(object->className), reinterpret_cast<char*>(className));
     object->variablesCount = size;
     object->variables = new AbaciValue[size];
+    memset(reinterpret_cast<void*>(object->variables), 0, sizeof(AbaciValue) * size);
+    return object;
+}
+
+List *makeList(size_t size) {
+    auto *object = new List{};
+    object->length = size;
+    object->elements = new AbaciValue[size];
+    memset(reinterpret_cast<void*>(object->elements), 0, sizeof(AbaciValue) * size);
     return object;
 }
 
@@ -52,19 +62,28 @@ Complex *cloneComplex(Complex *existing) {
 
 String *cloneString(String *existing) {
     auto *object = new String{};
-    object->ptr = new char8_t[existing->len];
-    memcpy(object->ptr, existing->ptr, existing->len);
-    object->len = existing->len;
+    object->ptr = new char8_t[existing->length];
+    memcpy(object->ptr, existing->ptr, existing->length);
+    object->length = existing->length;
     return object;
 }
 
 Instance *cloneInstance(Instance *existing) {
     auto *object = new Instance{};
-    auto len = strlen(reinterpret_cast<char*>(existing->className));
-    object->className = new char8_t[len + 1];
+    auto length = strlen(reinterpret_cast<char*>(existing->className));
+    object->className = new char8_t[length + 1];
     strcpy(reinterpret_cast<char*>(object->className), reinterpret_cast<char*>(existing->className));
     object->variablesCount = existing->variablesCount;
     object->variables = new AbaciValue[existing->variablesCount];
+    memset(reinterpret_cast<void*>(object->variables), 0, sizeof(AbaciValue) * existing->variablesCount);
+    return object;
+}
+
+List *cloneList(List *existing) {
+    auto *object = new List{};
+    object->length = existing->length;
+    object->elements = new AbaciValue[existing->length];
+    memset(reinterpret_cast<void*>(object->elements), 0, sizeof(AbaciValue) * existing->length);
     return object;
 }
 
@@ -83,17 +102,22 @@ void destroyInstance(Instance *object) {
     delete object;
 }
 
+void destroyList(List *object) {
+    delete[] object->elements;
+    delete object;
+}
+
 bool compareString(String *str1, String *str2) {
-    return str1->len == str2->len
-        && !strncmp(reinterpret_cast<char*>(str1->ptr), reinterpret_cast<char*>(str2->ptr), str1->len);
+    return str1->length == str2->length
+        && !strncmp(reinterpret_cast<char*>(str1->ptr), reinterpret_cast<char*>(str2->ptr), str1->length);
 }
 
 String *concatString(String *str1, String *str2) {
     auto *object = new String{};
-    object->len = str1->len + str2->len;
-    object->ptr = new char8_t[object->len];
-    memcpy(object->ptr, str1->ptr, str1->len);
-    memcpy(object->ptr + static_cast<ptrdiff_t>(str1->len), str2->ptr, str2->len);
+    object->length = str1->length + str2->length;
+    object->ptr = new char8_t[object->length];
+    memcpy(object->ptr, str1->ptr, str1->length);
+    memcpy(object->ptr + static_cast<ptrdiff_t>(str1->length), str2->ptr, str2->length);
     return object;
 }
 
@@ -138,6 +162,11 @@ String *userInput(Context *ctx) {
     return makeString(reinterpret_cast<char8_t*>(str.data()), str.size());
 }
 
+void deleteElement(List *object, size_t element) {
+    --object->length;
+    memmove(object->elements + element, object->elements + element + 1, (object->length - element) * sizeof(AbaciValue));
+}
+
 AbaciValue toType(int toType, AbaciValue value, int fromType) {
     AbaciValue result;
     result.integer = 0;
@@ -157,16 +186,16 @@ AbaciValue toType(int toType, AbaciValue value, int fromType) {
                     auto *object = reinterpret_cast<String*>(value.object);
                     auto *str = reinterpret_cast<const char*>(object->ptr);
                     if (strncmp(HEX_PREFIX, str, strlen(HEX_PREFIX)) == 0) {
-                        std::from_chars(str + strlen(HEX_PREFIX), str + object->len, result.integer, 16);
+                        std::from_chars(str + strlen(HEX_PREFIX), str + object->length, result.integer, 16);
                     }
                     else if (strncmp(BIN_PREFIX, str, strlen(BIN_PREFIX)) == 0) {
-                        std::from_chars(str + strlen(BIN_PREFIX), str + object->len, result.integer, 2);
+                        std::from_chars(str + strlen(BIN_PREFIX), str + object->length, result.integer, 2);
                     }
                     else if (strncmp(OCT_PREFIX, str, strlen(OCT_PREFIX)) == 0) {
-                        std::from_chars(str + strlen(OCT_PREFIX), str + object->len, result.integer, 8);
+                        std::from_chars(str + strlen(OCT_PREFIX), str + object->length, result.integer, 8);
                     }
                     else {
-                        std::from_chars(str, str + object->len, result.integer, 10);
+                        std::from_chars(str, str + object->length, result.integer, 10);
                     }
                     break;
                 }
@@ -188,7 +217,7 @@ AbaciValue toType(int toType, AbaciValue value, int fromType) {
                 case AbaciValue::String: {
                     auto *object = reinterpret_cast<String*>(value.object);
                     auto *str = reinterpret_cast<const char*>(object->ptr);
-                    std::from_chars(str, str + object->len, result.floating);
+                    std::from_chars(str, str + object->length, result.floating);
                     break;
                 }
                 default:
@@ -214,7 +243,7 @@ AbaciValue toType(int toType, AbaciValue value, int fromType) {
                     auto *strObject = reinterpret_cast<String*>(value.object);
                     auto *str = reinterpret_cast<const char*>(strObject->ptr);
                     double d;
-                    auto [ ptr, ec ] = std::from_chars(str, str + strObject->len, d);
+                    auto [ ptr, ec ] = std::from_chars(str, str + strObject->length, d);
                     if (strncmp(ptr, IMAGINARY, strlen(IMAGINARY)) == 0) {
                         object->real = 0;
                         object->imag = d;
@@ -224,7 +253,7 @@ AbaciValue toType(int toType, AbaciValue value, int fromType) {
                         if (*ptr == '+') {
                             ++ptr;
                         }
-                        std::from_chars(ptr, str + strObject->len, d);
+                        std::from_chars(ptr, str + strObject->length, d);
                         object->imag = d;
                     }
                     else {
@@ -289,7 +318,7 @@ AbaciValue toType(int toType, AbaciValue value, int fromType) {
                     break;
                 case AbaciValue::String: {
                     auto *object = static_cast<String*>(value.object);
-                    str.assign(reinterpret_cast<const char*>(object->ptr), object->len);
+                    str.assign(reinterpret_cast<const char*>(object->ptr), object->length);
                     break;
                 }
                 default:
@@ -373,16 +402,31 @@ void printValue<Complex*>(Context *ctx, Complex *value) {
 
 template<>
 void printValue<String*>(Context *ctx, String *value) {
-    ctx->output->write(reinterpret_cast<const char*>(value->ptr), value->len);
+    ctx->output->write(reinterpret_cast<const char*>(value->ptr), value->length);
 }
 
 template<>
 void printValue<Instance*>(Context *ctx, Instance *value) {
+    if (value != nullptr) {
 #ifdef ABACI_USE_STD_FORMAT
-    const auto* className = reinterpret_cast<const char*>(value->className);
-    *(ctx->output) << std::vformat(InstanceOf, std::make_format_args(className));
+        const auto* className = reinterpret_cast<const char*>(value->className);
+        *(ctx->output) << std::vformat(InstanceOf, std::make_format_args(className));
 #else
-    fmt::print(*(ctx->output), fmt::runtime(InstanceOf), reinterpret_cast<const char*>(value->className));
+        fmt::print(*(ctx->output), fmt::runtime(InstanceOf), reinterpret_cast<const char*>(value->className));
+#endif
+    }
+    else {
+        *(ctx->output) << NIL;
+    }
+}
+
+template<>
+void printValue<List*>(Context *ctx, List *value) {
+#ifdef ABACI_USE_STD_FORMAT
+    const auto length = value->length;
+    *(ctx->output) << std::vformat(ListOf, std::make_format_args(length));
+#else
+    fmt::print(*(ctx->output), fmt::runtime(ListOf), value->length);
 #endif
 }
 

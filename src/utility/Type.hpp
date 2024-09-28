@@ -20,13 +20,18 @@ struct Complex {
 
 struct String {
     char8_t *ptr;
-    std::size_t len;
+    std::size_t length;
 };
 
 struct Instance {
     char8_t *className;
     std::size_t variablesCount{};
     AbaciValue *variables;
+};
+
+struct List {
+    size_t length;
+    AbaciValue *elements;
 };
 
 union AbaciValue {
@@ -51,12 +56,11 @@ struct TypeInstance : TypeBase {
 };
 
 struct TypeList : TypeBase {
-    std::vector<std::size_t> dimensions;
     Type elementType;
-};
+    };
 
 AbaciValue::Type typeToScalar(const Type& type);
-const std::string& typeToString(const Type& type);
+std::string typeToString(const Type& type);
 bool isConstant(const Type& type);
 Type addConstToType(const Type& type);
 Type removeConstFromType(const Type& type);

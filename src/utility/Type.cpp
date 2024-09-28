@@ -28,14 +28,33 @@ AbaciValue::Type typeToScalar(const Type& type) {
     }
 }
 
-const std::string& typeToString(const Type& type) {
+std::string typeToString(const Type& type) {
+    if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+        if (auto instance = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type))) {
+            std::string instanceType;
+            instanceType = instance->className;
+            auto separator = "";
+            instanceType.append("(");
+            for (const auto& type : instance->variableTypes) {
+                instanceType.append(separator);
+                instanceType.append(typeToString(type));
+                separator = ",";
+            }
+            instanceType.append(")");
+            return instanceType;
+        }
+        else if (auto list = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+            return "[" + typeToString(list->elementType) + "]";
+        }
+        UnexpectedError0(NotImpl);
+    }
     auto scalarType = typeToScalar(removeConstFromType(type));
     for (const auto& item : TypeConversions) {
         if (item.second == scalarType) {
             return item.first;
         }
     }
-    UnexpectedError0(BadType);
+    return BadType;
 }
 
 bool isConstant(const Type& type) {
@@ -60,6 +79,11 @@ Type addConstToType(const Type& type) {
             constType->isConstant = true;
             return constType;
         }
+        else if (auto list = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+            auto constType = std::make_shared<TypeList>(*list);
+            constType->isConstant = true;
+            return constType;
+        }
         UnexpectedError0(NotImpl);
     }
     else {
@@ -76,6 +100,11 @@ Type removeConstFromType(const Type& type) {
             auto nonConstType = std::make_shared<TypeInstance>(*instance);
             nonConstType->isConstant = false;
             return nonConstType;
+        }
+        else if (auto list = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+            auto constType = std::make_shared<TypeList>(*list);
+            constType->isConstant = false;
+            return constType;
         }
         UnexpectedError0(NotImpl);
     }
@@ -157,23 +186,25 @@ bool operator==(const Type& lhs, const Type& rhs) {
     else if (std::holds_alternative<std::shared_ptr<TypeBase>>(lhs)) {
         if (auto lhsPtr = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(lhs)),
             rhsPtr = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(rhs)); lhsPtr && rhsPtr) {
-            return lhsPtr->className == rhsPtr->className;
+            if (lhsPtr->className != rhsPtr->className) {
+                return false;
+            }
+            else {
+                for (size_t index = 0; const auto& type : lhsPtr->variableTypes) {
+                    if (type != rhsPtr->variableTypes.at(index++)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
         }
         else if (auto lhsPtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(lhs)),
             rhsPtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(rhs)); lhsPtr && rhsPtr) {
             if (lhsPtr->elementType != rhsPtr->elementType) {
                 return false;
             }
-            else if (lhsPtr->dimensions.size() == rhsPtr->dimensions.size()) {
-                for (auto iter1 = lhsPtr->dimensions.cbegin(), iter2 = rhsPtr->dimensions.cbegin(); iter1 != lhsPtr->dimensions.cend(); ++iter1, ++iter2) {
-                    if (*iter1 != *iter2) {
-                        return false;
-                    }
-                }
-                return true;
-            }
             else {
-                return false;
+                return true;
             }
         }
         return false;
@@ -184,6 +215,7 @@ bool operator==(const Type& lhs, const Type& rhs) {
 }
     
 const std::unordered_map<std::string,AbaciValue::Type> TypeConversions{
+    { NIL, AbaciValue::None },
     { BOOL, AbaciValue::Boolean },
     { INT, AbaciValue::Integer },
     { FLOAT, AbaciValue::Floating },

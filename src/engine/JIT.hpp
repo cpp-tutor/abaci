@@ -44,7 +44,13 @@ public:
         module{ std::make_unique<Module>(moduleName, *context) }, builder{ *context },
         moduleName{ moduleName }, functionName{ functionName }, cache{ cache },
         runtimeContext{ runtimeContext } {
-        initialize();
+            try {
+                initialize();
+            }
+            catch (std::exception&) {
+                cache->clearInstantiations();
+                throw;
+            }
     }
     auto& getContext() { return *context; }
     auto& getModule() { return *module; }

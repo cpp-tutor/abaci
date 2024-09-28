@@ -4,6 +4,7 @@
 #include "utility/Report.hpp"
 #include "localize/Messages.hpp"
 #include "utility/Utility.hpp"
+#include "lib/Abaci.hpp"
 #include <llvm/IR/Constants.h>
 
 namespace abaci::codegen {
@@ -13,6 +14,8 @@ using namespace llvm;
 using abaci::ast::ExprNode;
 using abaci::ast::ExprList;
 using abaci::ast::Variable;
+using abaci::ast::ListIndex;
+using abaci::lib::makeString;
 using abaci::utility::AbaciValue;
 using abaci::utility::Operator;
 using abaci::utility::TypeBase;
@@ -21,7 +24,9 @@ using abaci::utility::GlobalSymbols;
 using abaci::utility::LocalSymbols;
 using abaci::utility::mangled;
 using abaci::utility::removeConstFromType;
+using abaci::utility::TypeList;
 using abaci::utility::TypeInstance;
+using abaci::utility::TypeConversions;
 using abaci::utility::cloneValue;
 using abaci::utility::loadMutableValue;
 using abaci::utility::loadGlobalValue;
@@ -33,6 +38,9 @@ void ExprCodeGen::codeGen<ExprNode::ValueNode>(const ExprNode& node) const {
     auto index = std::get<ExprNode::ValueNode>(node.data);
     const auto& constantValue = constants.get(index);
     switch (typeToScalar(constantValue.second)) {
+        case AbaciValue::None:
+            push({ ConstantPointerNull::get(PointerType::get(jit.getNamedType("struct.Instance"), 0)), AbaciValue::None });
+            break;
         case AbaciValue::Boolean:
             push({ ConstantInt::get(builder.getInt1Ty(), constantValue.first.integer), AbaciValue::Boolean });
             break;
@@ -42,18 +50,12 @@ void ExprCodeGen::codeGen<ExprNode::ValueNode>(const ExprNode& node) const {
         case AbaciValue::Floating:
             push({ ConstantFP::get(builder.getDoubleTy(), constantValue.first.floating), AbaciValue::Floating });
             break;
-        case AbaciValue::Complex: {
-            Value *value = cloneValue(jit, ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), constantValue.first.integer), PointerType::get(jit.getNamedType("struct.Complex"), 0)), AbaciValue::Complex);
-            temps->addTemporary({ value, AbaciValue::Complex });
-            push({ value, AbaciValue::Complex });
+        case AbaciValue::Complex:
+            push({ ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), constantValue.first.integer), PointerType::get(jit.getNamedType("struct.Complex"), 0)), AbaciValue::Complex });
             break;
-        }
-        case AbaciValue::String: {
-            Value *value = cloneValue(jit, ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), constantValue.first.integer), PointerType::get(jit.getNamedType("struct.String"), 0)), AbaciValue::String);
-            temps->addTemporary({ value, AbaciValue::String });
-            push({ value, AbaciValue::String });
+        case AbaciValue::String:
+            push({ ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), constantValue.first.integer), PointerType::get(jit.getNamedType("struct.String"), 0)), AbaciValue::String });
             break;
-        }
         default:
             UnexpectedError0(BadType);
     }
@@ -70,8 +72,8 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                 auto op = std::get<Operator>(iter++->data);
                 (*this)(*iter++);
                 auto operand = pop();
-                auto type = (operand.second != result.second) ? promote(result, operand) : typeToScalar(result.second);
-                switch (type) {
+                auto type = (operand.second != result.second) ? promote(result, operand) : result.second;
+                switch (typeToScalar(type)) {
                     case AbaciValue::Boolean:
                         switch (op) {
                             case Operator::BitAnd:
@@ -168,6 +170,69 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 UnexpectedError0(BadOperator);
                         }
                         break;
+                    case AbaciValue::List:
+                        switch (op) {
+                            case Operator::Plus: {
+                                Assert(operand.second == result.second);
+                                auto typeBase = std::get<std::shared_ptr<TypeBase>>(result.second);
+                                Type elementType = std::dynamic_pointer_cast<TypeList>(typeBase)->elementType;
+                                Value *listSize1 = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), result.first, 0));
+                                Value *listSize2 = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), operand.first, 0));
+                                Value *listSize = builder.CreateAdd(listSize1, listSize2);
+                                Value *list = builder.CreateCall(module.getFunction("makeList"), { listSize });
+                                ArrayType *array = ArrayType::get(builder.getInt64Ty(), 0);
+                                Value *listRead1 = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), result.first, 1));
+                                Value *listRead2 = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), operand.first, 1));
+                                Value *listWrite = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), list, 1));
+                                AllocaInst *readIndex = builder.CreateAlloca(builder.getInt64Ty(), nullptr);
+                                AllocaInst *writeIndex = builder.CreateAlloca(builder.getInt64Ty(), nullptr);
+                                builder.CreateStore(builder.getInt64(0), readIndex);
+                                builder.CreateStore(builder.getInt64(0), writeIndex);
+                                BasicBlock *preBlock1 = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+                                BasicBlock *loopBlock1 = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+                                BasicBlock *postBlock1 = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+                                BasicBlock *preBlock2 = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+                                BasicBlock *loopBlock2 = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+                                BasicBlock *postBlock2 = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+                                builder.CreateBr(preBlock1);
+                                builder.SetInsertPoint(preBlock1);
+                                Value *condition = builder.CreateICmpNE(builder.CreateLoad(builder.getInt64Ty(), readIndex), listSize1);
+                                builder.CreateCondBr(condition, loopBlock1, postBlock1);
+                                builder.SetInsertPoint(loopBlock1);
+                                Value *readIndexValue = builder.CreateLoad(builder.getInt64Ty(), readIndex);
+                                Value *writeIndexValue = builder.CreateLoad(builder.getInt64Ty(), writeIndex);
+                                Value *elementRead = builder.CreateGEP(array, listRead1, { builder.getInt32(0), readIndexValue });
+                                Value *element = cloneValue(jit, builder.CreateLoad(typeToLLVMType(jit, elementType), elementRead), elementType);
+                                Value *elementWrite = builder.CreateGEP(array, listWrite, { builder.getInt32(0), writeIndexValue });
+                                builder.CreateStore(builder.CreateBitCast(element, builder.getInt64Ty()), elementWrite);
+                                builder.CreateStore(builder.CreateAdd(readIndexValue, builder.getInt64(1)), readIndex);
+                                builder.CreateStore(builder.CreateAdd(writeIndexValue, builder.getInt64(1)), writeIndex);
+                                builder.CreateBr(preBlock1);
+                                builder.SetInsertPoint(postBlock1);
+                                builder.CreateStore(builder.getInt64(0), readIndex);
+                                builder.CreateBr(preBlock2);
+                                builder.SetInsertPoint(preBlock2);
+                                condition = builder.CreateICmpNE(builder.CreateLoad(builder.getInt64Ty(), readIndex), listSize2);
+                                builder.CreateCondBr(condition, loopBlock2, postBlock2);
+                                builder.SetInsertPoint(loopBlock2);
+                                readIndexValue = builder.CreateLoad(builder.getInt64Ty(), readIndex);
+                                writeIndexValue = builder.CreateLoad(builder.getInt64Ty(), writeIndex);
+                                elementRead = builder.CreateGEP(array, listRead2, { builder.getInt32(0), readIndexValue });
+                                element = cloneValue(jit, builder.CreateLoad(typeToLLVMType(jit, elementType), elementRead), elementType);
+                                elementWrite = builder.CreateGEP(array, listWrite, { builder.getInt32(0), writeIndexValue });
+                                builder.CreateStore(builder.CreateBitCast(element, builder.getInt64Ty()), elementWrite);
+                                builder.CreateStore(builder.CreateAdd(readIndexValue, builder.getInt64(1)), readIndex);
+                                builder.CreateStore(builder.CreateAdd(writeIndexValue, builder.getInt64(1)), writeIndex);
+                                builder.CreateBr(preBlock2);
+                                builder.SetInsertPoint(postBlock2);
+                                temps->addTemporary({ list, result.second });
+                                result.first = list;
+                                break;
+                            }
+                            default:
+                                UnexpectedError0(BadOperator);
+                        }
+                        break;
                     default:
                         UnexpectedError0(BadType);
                         break;
@@ -184,8 +249,8 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                 auto op = std::get<Operator>(iter++->data);
                 (*this)(*iter++);
                 auto operand = pop();
-                auto type = (operand.second != result.second) ? promote(result, operand) : typeToScalar(result.second);
-                switch (type) {
+                auto type = (operand.second != result.second) ? promote(result, operand) : result.second;
+                switch (typeToScalar(type)) {
                     case AbaciValue::Integer:
                         switch (op) {
                             case Operator::Exponent: {
@@ -232,16 +297,38 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
             const auto& expr = std::get<ExprNode::ListNode>(node.data).second;
             (*this)(expr.back());
             auto result = pop();
-            auto type = typeToScalar(result.second);
+            auto type = result.second;
             for (auto iter = ++expr.rbegin(); iter != expr.rend();) {
                 auto op = std::get<Operator>(iter++->data);
-                switch (type) {
+                switch (typeToScalar(type)) {
+                    case AbaciValue::None:
+                        switch (op) {
+                            case Operator::Question: {
+                                auto str = typeToString(type);
+                                auto *obj = makeString(reinterpret_cast<char8_t*>(str.data()), str.size());
+                                result.first = ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), reinterpret_cast<intptr_t>(obj)), PointerType::get(jit.getNamedType("struct.String"), 0));
+                                result.second = AbaciValue::String;
+                                temps->addTemporary({ result.first, result.second });
+                                break;
+                            }
+                            default:
+                                UnexpectedError0(BadOperator);
+                        }
+                        break;
                     case AbaciValue::Boolean:
                         switch (op) {
                             case Operator::Not:
                             case Operator::Compl:
                                 result.first = builder.CreateNot(result.first);
                                 break;
+                            case Operator::Question: {
+                                auto str = typeToString(type);
+                                auto *obj = makeString(reinterpret_cast<char8_t*>(str.data()), str.size());
+                                result.first = ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), reinterpret_cast<intptr_t>(obj)), PointerType::get(jit.getNamedType("struct.String"), 0));
+                                result.second = AbaciValue::String;
+                                temps->addTemporary({ result.first, result.second });
+                                break;
+                            }
                             default:
                                 UnexpectedError0(BadOperator);
                         }
@@ -258,6 +345,14 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                             case Operator::Compl:
                                 result.first = builder.CreateNot(result.first);
                                 break;
+                            case Operator::Question: {
+                                auto str = typeToString(type);
+                                auto *obj = makeString(reinterpret_cast<char8_t*>(str.data()), str.size());
+                                result.first = ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), reinterpret_cast<intptr_t>(obj)), PointerType::get(jit.getNamedType("struct.String"), 0));
+                                result.second = AbaciValue::String;
+                                temps->addTemporary({ result.first, result.second });
+                                break;
+                            }
                             default:
                                 UnexpectedError0(BadOperator);
                         }
@@ -271,6 +366,14 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                 result.first = builder.CreateNot(toBoolean(result));
                                 result.second = AbaciValue::Boolean;
                                 break;
+                            case Operator::Question: {
+                                auto str = typeToString(type);
+                                auto *obj = makeString(reinterpret_cast<char8_t*>(str.data()), str.size());
+                                result.first = ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), reinterpret_cast<intptr_t>(obj)), PointerType::get(jit.getNamedType("struct.String"), 0));
+                                result.second = AbaciValue::String;
+                                temps->addTemporary({ result.first, result.second });
+                                break;
+                            }
                             default:
                                 UnexpectedError0(BadOperator);
                         }
@@ -282,6 +385,64 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                                     { ConstantInt::get(builder.getInt32Ty(), static_cast<int>(op)),
                                         result.first, ConstantPointerNull::get(PointerType::get(jit.getNamedType("struct.Complex"), 0)) });
                                 temps->addTemporary({ result.first, type });
+                                break;
+                            }
+                            case Operator::Question: {
+                                auto str = typeToString(type);
+                                auto *obj = makeString(reinterpret_cast<char8_t*>(str.data()), str.size());
+                                result.first = ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), reinterpret_cast<intptr_t>(obj)), PointerType::get(jit.getNamedType("struct.String"), 0));
+                                result.second = AbaciValue::String;
+                                temps->addTemporary({ result.first, result.second });
+                                break;
+                            }
+                            default:
+                                UnexpectedError0(BadOperator);
+                        }
+                        break;
+                    case AbaciValue::String:
+                        switch (op) {
+                            case Operator::Bang:
+                                result.first = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.String"), result.first, 1));
+                                result.second = AbaciValue::Integer;
+                                break;
+                            case Operator::Question: {
+                                auto str = typeToString(type);
+                                auto *obj = makeString(reinterpret_cast<char8_t*>(str.data()), str.size());
+                                result.first = ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), reinterpret_cast<intptr_t>(obj)), PointerType::get(jit.getNamedType("struct.String"), 0));
+                                result.second = AbaciValue::String;
+                                temps->addTemporary({ result.first, result.second });
+                                break;
+                            }
+                            default:
+                                UnexpectedError0(BadOperator);
+                        }
+                        break;
+                    case AbaciValue::Instance:
+                        switch (op) {
+                            case Operator::Question: {
+                                auto str = typeToString(type);
+                                auto *obj = makeString(reinterpret_cast<char8_t*>(str.data()), str.size());
+                                result.first = ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), reinterpret_cast<intptr_t>(obj)), PointerType::get(jit.getNamedType("struct.String"), 0));
+                                result.second = AbaciValue::String;
+                                temps->addTemporary({ result.first, result.second });
+                                break;
+                            }
+                            default:
+                                UnexpectedError0(BadOperator);
+                        }
+                        break;
+                    case AbaciValue::List:
+                        switch (op) {
+                            case Operator::Bang:
+                                result.first = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), result.first, 0));
+                                result.second = AbaciValue::Integer;
+                                break;
+                            case Operator::Question: {
+                                auto str = typeToString(type);
+                                auto *obj = makeString(reinterpret_cast<char8_t*>(str.data()), str.size());
+                                result.first = ConstantExpr::getIntToPtr(ConstantInt::get(builder.getInt64Ty(), reinterpret_cast<intptr_t>(obj)), PointerType::get(jit.getNamedType("struct.String"), 0));
+                                result.second = AbaciValue::String;
+                                temps->addTemporary({ result.first, result.second });
                                 break;
                             }
                             default:
@@ -309,8 +470,8 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
                     auto op = std::get<Operator>(iter++->data);
                     (*this)(*iter++);
                     auto operand = pop();
-                    auto type = (operand.second != result.second) ? promote(result, operand) : typeToScalar(result.second);
-                    switch (type) {
+                    auto type = (operand.second != result.second) ? promote(result, operand) : result.second;
+                    switch (typeToScalar(type)) {
                         case AbaciValue::Boolean:
                             switch (op) {
                                 case Operator::Equal:
@@ -459,12 +620,10 @@ template<>
 void ExprCodeGen::codeGen<ExprNode::VariableNode>(const ExprNode& node) const {
     const Variable& variable = std::get<ExprNode::VariableNode>(node.data);
     if (locals) {
-        auto [ vars, index ] = locals->getIndex(variable.name);
+        auto [ variables, index ] = locals->getIndex(variable.name);
         if (index != LocalSymbols::noVariable) {
-            auto type = removeConstFromType(vars->getType(index));
-            Value *value = cloneValue(jit, loadMutableValue(jit, vars->getValue(index), type), type);
-            temps->addTemporary({ value, type });
-            push({ value, type });
+            auto type = removeConstFromType(variables->getType(index));
+            push({ loadMutableValue(jit, variables->getValue(index), type), type });
             return;
         }
     }
@@ -472,12 +631,10 @@ void ExprCodeGen::codeGen<ExprNode::VariableNode>(const ExprNode& node) const {
     auto globalIndex = globals->getIndex(variable.name);
     if (globalIndex != GlobalSymbols::noVariable) {
         auto type = removeConstFromType(globals->getType(globalIndex));
-        Value *value = cloneValue(jit, loadGlobalValue(jit, globalIndex, type), type);
-        temps->addTemporary({ value, type });
-        push({ value, type });
+        push({ loadGlobalValue(jit, globalIndex, type), type });
     }
     else {
-        UnexpectedError1(VarNotExist, variable.name);
+        UnexpectedError1(VariableNotExist, variable.name);
     }
 }
 
@@ -509,19 +666,25 @@ void ExprCodeGen::codeGen<ExprNode::FunctionNode>(const ExprNode& node) const {
             Value *instance = builder.CreateCall(module.getFunction("makeInstance"), { className, variablesCount });
             ArrayType *array = ArrayType::get(builder.getInt64Ty(), call.args.size());
             Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.Instance"), instance, 2));
+            auto instanceType = std::make_shared<TypeInstance>();
+            instanceType->className = call.name;
             for (std::size_t index = 0; const auto& value : call.args) {
                 ExprCodeGen expr(jit, locals, temps);
                 expr(value);
                 auto result = expr.get();
-                Value *ptr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
-                builder.CreateStore(builder.CreateBitCast(result.first, builder.getInt64Ty()), ptr);
-                if (temps->isTemporary(result.first)) {
+                Value *makeTemporary;
+                if (!temps->isTemporary(result.first)) {
+                    makeTemporary = cloneValue(jit, result.first, result.second);
+                }
+                else {
+                    makeTemporary = result.first;
                     temps->removeTemporary(result.first);
                 }
+                Value *ptr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
+                builder.CreateStore(builder.CreateBitCast(makeTemporary, builder.getInt64Ty()), ptr);
+                instanceType->variableTypes.push_back(result.second);
                 ++index;
             }
-            auto instanceType = std::make_shared<TypeInstance>();
-            instanceType->className = call.name;
             temps->addTemporary({ instance, instanceType });
             push({ instance, instanceType });
             break;
@@ -537,10 +700,10 @@ void ExprCodeGen::codeGen<ExprNode::DataMemberNode>(const ExprNode& node) const 
     const std::string& name = data.name.name;
     Type type;
     if (locals) {
-        auto [ vars, index ] = locals->getIndex(name);
+        auto [ variables, index ] = locals->getIndex(name);
         if (index != LocalSymbols::noVariable) {
-            type = vars->getType(index);
-            Value *value = loadMutableValue(jit, vars->getValue(index), type);
+            type = variables->getType(index);
+            Value *value = loadMutableValue(jit, variables->getValue(index), type);
             for (const auto& member : data.memberList) {
                 if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                     UnexpectedError0(BadObject);
@@ -554,10 +717,7 @@ void ExprCodeGen::codeGen<ExprNode::DataMemberNode>(const ExprNode& node) const 
                 Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
                 value = builder.CreateLoad(typeToLLVMType(jit, type), valuePtr);
             }
-            auto stackType = removeConstFromType(type);
-            Value *stackValue = cloneValue(jit, value, type);
-            temps->addTemporary({ stackValue, stackType });
-            push({ stackValue, stackType });
+            push({ value, removeConstFromType(type) });
             return;
         }
     }
@@ -579,13 +739,10 @@ void ExprCodeGen::codeGen<ExprNode::DataMemberNode>(const ExprNode& node) const 
             Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
             value = builder.CreateLoad(typeToLLVMType(jit, type), valuePtr);
         }
-        auto stackType = removeConstFromType(type);
-        Value *stackValue = cloneValue(jit, value, type);
-        temps->addTemporary({ stackValue, stackType });
-        push({ stackValue, stackType });
+        push({ value, removeConstFromType(type) });
     }
     else {
-        UnexpectedError1(VarNotExist, name);
+        UnexpectedError1(VariableNotExist, name);
     }
 }
 
@@ -596,10 +753,10 @@ void ExprCodeGen::codeGen<ExprNode::MethodNode>(const ExprNode& node) const {
     Type type;
     Value *thisPtr = nullptr;
     if (locals) {
-        auto [ vars, index ] = locals->getIndex(name);
+        auto [ variables, index ] = locals->getIndex(name);
         if (index != LocalSymbols::noVariable) {
-            type = vars->getType(index);
-            Value *value = loadMutableValue(jit, vars->getValue(index), type);
+            type = variables->getType(index);
+            Value *value = loadMutableValue(jit, variables->getValue(index), type);
             for (const auto& member : methodCall.memberList) {
                 if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                     UnexpectedError0(BadObject);
@@ -653,7 +810,7 @@ void ExprCodeGen::codeGen<ExprNode::MethodNode>(const ExprNode& node) const {
         arguments.insert(arguments.begin(), thisPtr);
         auto returnType = jit.getCache()->getFunctionInstantiationType(methodName, types);
         auto result = builder.CreateCall(module.getFunction(mangled(methodName, types)), arguments);
-        temps->addTemporary({ result, returnType });
+                temps->addTemporary({ result, returnType });
         push({ result, returnType });
     }
     else {
@@ -689,6 +846,253 @@ void ExprCodeGen::codeGen<ExprNode::TypeConvNode>(const ExprNode& node) const {
     push({ conversion, targetType });
 }
 
+template<>
+void ExprCodeGen::codeGen<ExprNode::ListItemsNode>(const ExprNode& node) const {
+    const auto& list = std::get<ExprNode::ListItemsNode>(node.data);
+    Assert(!list.elementType.empty() || list.firstElement->data.index() != ExprNode::UnsetNode);
+    Type elementType = AbaciValue::None;
+    if (!list.elementType.empty()) {
+        if (auto iter = TypeConversions.find(list.elementType); iter != TypeConversions.end()) {
+            elementType = iter->second;
+        }
+    }
+    size_t listSize = (list.firstElement->data.index() != ExprNode::UnsetNode) + list.otherElements->size();
+    Value *listObject = builder.CreateCall(module.getFunction("makeList"), { builder.getInt64(listSize) });
+    if (list.firstElement->data.index() != ExprNode::UnsetNode) {
+        ExprCodeGen expr(jit, locals, temps);
+        expr(*(list.firstElement));
+        auto result = expr.get();
+        if (elementType == AbaciValue::None) {
+            elementType = result.second;
+        }
+        Assert(elementType == result.second);
+        Value *value;
+        if (temps->isTemporary(result.first)) {
+            temps->removeTemporary(result.first);
+            value = result.first;
+        }
+        else {
+            value = cloneValue(jit, result.first, result.second);
+        }
+        ArrayType *array = ArrayType::get(builder.getInt64Ty(), list.otherElements->size() + 1);
+        Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), listObject, 1));
+        Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(0) });
+        builder.CreateStore(value, valuePtr);
+        for (size_t index = 1; const auto& element : *(list.otherElements)) {
+            ExprCodeGen expr(jit, locals, temps);
+            expr(element);
+            auto result = expr.get();
+            Assert(elementType == result.second);
+            Value *value;
+            if (temps->isTemporary(result.first)) {
+                temps->removeTemporary(result.first);
+                value = result.first;
+            }
+            else {
+                value = cloneValue(jit, result.first, result.second);
+            }
+            ArrayType *array = ArrayType::get(builder.getInt64Ty(), list.otherElements->size() + 1);
+            Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), listObject, 1));
+            Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
+            builder.CreateStore(value, valuePtr);
+            ++index;
+        }
+    }
+    auto type = std::make_shared<TypeList>();
+    type->elementType = elementType;
+    temps->addTemporary({ listObject, type });
+    push({ listObject, type });
+}
+
+template<>
+void ExprCodeGen::codeGen<ExprNode::ListIndexNode>(const ExprNode& node) const {
+    const ListIndex& listIndex = std::get<ExprNode::ListIndexNode>(node.data);
+    if (locals) {
+        auto [ variables, index ] = locals->getIndex(listIndex.name.name);
+        if (index != LocalSymbols::noVariable) {
+            Type type = variables->getType(index);
+            if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+                    Value *value = loadMutableValue(jit, variables->getValue(index), type);
+                    for (const auto& indexExpression : listIndex.indexes) {
+                        if (typePtr == nullptr) {
+                            UnexpectedError1(TooManyIndexes, listIndex.name.name);
+                        }
+                        ExprCodeGen expr(jit, locals, temps);
+                        expr(indexExpression);
+                        if (typeToScalar(expr.get().second) != AbaciValue::Integer) {
+                            UnexpectedError0(IndexNotInt);
+                        }
+                        Value *index = expr.get().first;
+                        Value *listSize = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 0));
+                        ArrayType *array = ArrayType::get(builder.getInt64Ty(), 0);
+                        Value *listElements = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 1));
+                        Value *elementPtr = builder.CreateGEP(array, listElements, { builder.getInt32(0), index });
+                        type = typePtr->elementType;
+                        value = builder.CreateLoad(typeToLLVMType(jit, type), elementPtr);
+                        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                            typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                        }
+                        else {
+                            typePtr = nullptr;
+                        }
+                    }
+                    push({ value, type });
+                    return;
+                }
+            }
+            UnexpectedError1(VariableNotList, listIndex.name.name);
+        }
+    }
+    auto globals = jit.getRuntimeContext().globals;
+    auto globalIndex = globals->getIndex(listIndex.name.name);
+    if (globalIndex != GlobalSymbols::noVariable) {
+        Type type = globals->getType(globalIndex);
+        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+            if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+                Value *value = loadGlobalValue(jit, globalIndex, type);
+                for (const auto& indexExpression : listIndex.indexes) {
+                    if (typePtr == nullptr) {
+                        UnexpectedError1(TooManyIndexes, listIndex.name.name);
+                    }
+                    ExprCodeGen expr(jit, locals, temps);
+                    expr(indexExpression);
+                    if (typeToScalar(expr.get().second) != AbaciValue::Integer) {
+                        UnexpectedError0(IndexNotInt);
+                    }
+                    Value *index = expr.get().first;
+                    Value *listSize = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 0));
+                    ArrayType *array = ArrayType::get(builder.getInt64Ty(), 0);
+                    Value *listElements = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 1));
+                    Value *elementPtr = builder.CreateGEP(array, listElements, { builder.getInt32(0), index });
+                    type = typePtr->elementType;
+                    value = builder.CreateLoad(typeToLLVMType(jit, type), elementPtr);
+                    if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                        typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    }
+                    else {
+                        typePtr = nullptr;
+                    }
+                }
+                push({ value, type });
+                return;
+            }
+        }
+    }
+    else {
+        UnexpectedError1(VariableNotExist, listIndex.name.name);
+    }
+}
+
+template<>
+void ExprCodeGen::codeGen<ExprNode::DataIndexNode>(const ExprNode& node) const {
+    const auto& dataIndex = std::get<ExprNode::DataIndexNode>(node.data);
+    const std::string& name = dataIndex.name.name;
+    Type type;
+    if (locals) {
+        auto [ variables, index ] = locals->getIndex(name);
+        if (index != LocalSymbols::noVariable) {
+            type = variables->getType(index);
+            Value *value = loadMutableValue(jit, variables->getValue(index), type);
+            for (const auto& member : dataIndex.memberList) {
+                if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
+                    UnexpectedError0(BadObject);
+                }
+                auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
+                Assert(instanceType != nullptr);
+                auto index = jit.getCache()->getMemberIndex(jit.getCache()->getClass(instanceType->className), member);
+                type = instanceType->variableTypes.at(index);
+                ArrayType *array = ArrayType::get(builder.getInt64Ty(), instanceType->variableTypes.size());
+                Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.Instance"), value, 2));
+                Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
+                value = builder.CreateLoad(typeToLLVMType(jit, type), valuePtr);
+            }
+            if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+                    for (const auto& indexExpression : dataIndex.indexes) {
+                        if (typePtr == nullptr) {
+                            UnexpectedError1(TooManyIndexes, dataIndex.name.name);
+                        }
+                        ExprCodeGen expr(jit, locals, temps);
+                        expr(indexExpression);
+                        if (typeToScalar(expr.get().second) != AbaciValue::Integer) {
+                            UnexpectedError0(IndexNotInt);
+                        }
+                        Value *index = expr.get().first;
+                        Value *listSize = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 0));
+                        ArrayType *array = ArrayType::get(builder.getInt64Ty(), 0);
+                        Value *listElements = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 1));
+                        Value *elementPtr = builder.CreateGEP(array, listElements, { builder.getInt32(0), index });
+                        type = typePtr->elementType;
+                        value = builder.CreateLoad(typeToLLVMType(jit, type), elementPtr);
+                        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                            typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                        }
+                        else {
+                            typePtr = nullptr;
+                        }
+                    }
+                    push({ value, type });
+                    return;
+                }
+            }
+            UnexpectedError1(VariableNotList, name);
+        }
+    }
+    auto globals = jit.getRuntimeContext().globals;
+    auto globalIndex = globals->getIndex(name);
+    if (globalIndex != GlobalSymbols::noVariable) {
+        Value *value = loadGlobalValue(jit, globalIndex, globals->getType(globalIndex));
+        type = globals->getType(globalIndex);
+        for (const auto& member : dataIndex.memberList) {
+            if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
+                UnexpectedError0(BadObject);
+            }
+            auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
+            Assert(instanceType != nullptr);
+            auto index = jit.getCache()->getMemberIndex(jit.getCache()->getClass(instanceType->className), member);
+            type = instanceType->variableTypes.at(index);
+            ArrayType *array = ArrayType::get(builder.getInt64Ty(), instanceType->variableTypes.size());
+            Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.Instance"), value, 2));
+            Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
+            value = builder.CreateLoad(typeToLLVMType(jit, type), valuePtr);
+        }
+        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+            if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+                for (const auto& indexExpression : dataIndex.indexes) {
+                    if (typePtr == nullptr) {
+                        UnexpectedError1(TooManyIndexes, dataIndex.name.name);
+                    }
+                    ExprCodeGen expr(jit, locals, temps);
+                    expr(indexExpression);
+                    if (typeToScalar(expr.get().second) != AbaciValue::Integer) {
+                        UnexpectedError0(IndexNotInt);
+                    }
+                    Value *index = expr.get().first;
+                    Value *listSize = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 0));
+                    ArrayType *array = ArrayType::get(builder.getInt64Ty(), 0);
+                    Value *listElements = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 1));
+                    Value *elementPtr = builder.CreateGEP(array, listElements, { builder.getInt32(0), index });
+                    type = typePtr->elementType;
+                    value = builder.CreateLoad(typeToLLVMType(jit, type), elementPtr);
+                    if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                        typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    }
+                    else {
+                        typePtr = nullptr;
+                    }
+                }
+                push({ value, type });
+                return;
+            }
+        }
+        UnexpectedError1(VariableNotList, name);
+    }
+    else {
+        UnexpectedError1(VariableNotExist, name);
+    }
+}
+
 void ExprCodeGen::operator()(const ExprNode& node) const {
     switch (node.data.index()) {
         case ExprNode::ValueNode:
@@ -715,15 +1119,29 @@ void ExprCodeGen::operator()(const ExprNode& node) const {
         case ExprNode::TypeConvNode:
             codeGen<ExprNode::TypeConvNode>(node);
             break;
+        case ExprNode::ListItemsNode:
+            codeGen<ExprNode::ListItemsNode>(node);
+            break;
+        case ExprNode::ListIndexNode:
+            codeGen<ExprNode::ListIndexNode>(node);
+            break;
+        case ExprNode::DataIndexNode:
+            codeGen<ExprNode::DataIndexNode>(node);
+            break;
         default:
             UnexpectedError0(BadNode);
     }
 }
 
-AbaciValue::Type ExprCodeGen::promote(TypedValue& operand1, TypedValue& operand2) const {
+Type ExprCodeGen::promote(TypedValue& operand1, TypedValue& operand2) const {
     if (std::holds_alternative<std::shared_ptr<TypeBase>>(operand1.second)
         || std::holds_alternative<std::shared_ptr<TypeBase>>(operand2.second)) {
-        UnexpectedError0(BadCoerceTypes);
+            if (operand1.second == operand2.second) {
+                return operand1.second;
+            }
+            else {
+                UnexpectedError0(BadCoerceTypes);
+            }
     }
     if ((typeToScalar(operand1.second) == typeToScalar(operand2.second))) {
         return typeToScalar(operand1.second);

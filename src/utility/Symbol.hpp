@@ -1,7 +1,6 @@
 #ifndef Symbol_hpp
 #define Symbol_hpp
 
-#include <llvm/ADT/APFloat.h>
 #include "Type.hpp"
 #include "engine/JITfwd.hpp"
 #include "Report.hpp"
@@ -53,7 +52,7 @@ public:
             return symbols.at(index).first;
         }
         else {
-            UnexpectedError0(BadVarIndex);
+            UnexpectedError0(BadVariableIndex);
         }
     }
     const auto& getType(std::size_t index) const {
@@ -61,7 +60,7 @@ public:
             return symbols.at(index).second;
         }
         else {
-            UnexpectedError0(BadVarIndex);
+            UnexpectedError0(BadVariableIndex);
         }
     }
     std::size_t size() const {
@@ -99,7 +98,7 @@ public:
             return symbols.at(index);
         }
         else {
-            UnexpectedError0(BadVarIndex);
+            UnexpectedError0(BadVariableIndex);
         }
     }
     std::size_t size() const {

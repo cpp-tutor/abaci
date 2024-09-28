@@ -11,6 +11,7 @@ using abaci::engine::JIT;
 using abaci::lib::destroyComplex;
 using abaci::lib::destroyString;
 using abaci::lib::destroyInstance;
+using abaci::lib::destroyList;
 
 void LocalSymbols::makeVariables(JIT& jit) {
     for (auto& symbol : symbols) {
@@ -19,7 +20,7 @@ void LocalSymbols::makeVariables(JIT& jit) {
 }
 
 void LocalSymbols::destroyVariables(JIT& jit) {
-    if (auto [ vars, index ] = getIndex(THIS_V, true); index != noVariable) {
+    if (auto [ variables, index ] = getIndex(THIS_V, true); index != noVariable) {
         symbols.erase(symbols.begin() + index);
         identifiers.erase(THIS_V);
     }
@@ -32,6 +33,7 @@ void LocalSymbols::destroyVariables(JIT& jit) {
             case AbaciValue::Complex:
             case AbaciValue::String:
             case AbaciValue::Instance:
+            case AbaciValue::List:
                 destroyValue(jit, loadMutableValue(jit, iter->first, iter->second), iter->second);
                 break;
             default:
@@ -60,7 +62,7 @@ static void deleteValue(AbaciValue value, const Type& type) {
                 destroyString(reinterpret_cast<String*>(value.object));
             }
             break;
-        case AbaciValue::Instance: {
+        case AbaciValue::Instance:
             if (reinterpret_cast<void*>(value.object) != nullptr) {
                 auto *instance = reinterpret_cast<Instance*>(value.object);
                 auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
@@ -70,7 +72,16 @@ static void deleteValue(AbaciValue value, const Type& type) {
                 destroyInstance(instance);
             }
             break;
-        }
+        case AbaciValue::List:
+            if (reinterpret_cast<void*>(value.object) != nullptr) {
+                auto *list = reinterpret_cast<List*>(value.object);
+                auto listType = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                for (std::size_t index = 0; index != list->length; ++index) {
+                    deleteValue(list->elements[index], listType->elementType);
+                }
+                destroyList(list);
+            }
+            break;
         default:
             try {
                 UnexpectedError0(BadType);

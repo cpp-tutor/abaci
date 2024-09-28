@@ -18,6 +18,8 @@ std::size_t Constants::add(AbaciValue value, const Type& type) {
                     return false;
                 }
                 switch (type) {
+                    case AbaciValue::None:
+                        return match.first.object == value.object;
                     case AbaciValue::Boolean:
                     case AbaciValue::Integer:
                         return match.first.integer == value.integer;
@@ -37,10 +39,10 @@ std::size_t Constants::add(AbaciValue value, const Type& type) {
                     case AbaciValue::String: {
                         auto *matchString = reinterpret_cast<String*>(match.first.object);
                         auto *valueString = reinterpret_cast<String*>(value.object);
-                        if (matchString->len == valueString->len
+                        if (matchString->length == valueString->length
                             && !strncmp(reinterpret_cast<const char*>(matchString->ptr),
                                 reinterpret_cast<const char*>(valueString->ptr),
-                                matchString->len)) {
+                                matchString->length)) {
                                     destroyString(valueString);
                                     return true;
                                 }
@@ -59,6 +61,13 @@ std::size_t Constants::add(AbaciValue value, const Type& type) {
     else {
         return iter - constants.begin();
     }
+}
+
+template<>
+std::size_t Constants::add(const std::nullptr_t&) {
+    AbaciValue value{};
+    value.object = nullptr;
+    return add(value, AbaciValue::None);
 }
 
 template<>

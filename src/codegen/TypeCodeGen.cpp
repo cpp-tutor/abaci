@@ -2,6 +2,7 @@
 #include "localize/Messages.hpp"
 #include "localize/Keywords.hpp"
 #include <llvm/IR/Constants.h>
+#include <iostream>
 
 using namespace llvm;
 
@@ -11,6 +12,7 @@ using abaci::ast::FunctionValueCall;
 using abaci::ast::DataMember;
 using abaci::ast::MethodValueCall;
 using abaci::ast::TypeConv;
+using abaci::ast::ListItems;
 using abaci::ast::ExprNode;
 using abaci::ast::ExprList;
 using abaci::ast::PrintList;
@@ -34,6 +36,8 @@ using abaci::ast::Class;
 using abaci::ast::DataAssignStmt;
 using abaci::ast::MethodCall;
 using abaci::ast::ExpressionStmt;
+using abaci::ast::ListAssignStmt;
+using abaci::ast::DataListAssignStmt;
 using abaci::utility::Operator;
 using abaci::utility::GlobalSymbols;
 using abaci::utility::isConstant;
@@ -43,8 +47,10 @@ using abaci::utility::typeToScalar;
 using abaci::utility::typeToString;
 using abaci::utility::operatorToString;
 using abaci::utility::TypeInstance;
+using abaci::utility::TypeList;
 using abaci::utility::TypeBase;
 using abaci::utility::ValidConversions;
+using abaci::utility::TypeConversions;
 
 void TypeEvalGen::operator()(const ExprNode& node) const {
     switch (node.data.index()) {
@@ -112,6 +118,14 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                                         LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
                                 }
                                 break;
+                            case AbaciValue::List:
+                                switch (op) {
+                                    case Operator::Plus:
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
+                                break;
                             default:
                                 LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
                                 break;
@@ -165,11 +179,21 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                         auto op = std::get<Operator>(iter++->data);
                         switch (typeToScalar(type)) {
                             case AbaciValue::None:
+                                switch (op) {
+                                    case Operator::Question:
+                                        type = AbaciValue::String;
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
                                 break;
                             case AbaciValue::Boolean:
                                 switch (op) {
                                     case Operator::Not:
                                     case Operator::Compl:
+                                        break;
+                                    case Operator::Question:
+                                        type = AbaciValue::String;
                                         break;
                                     default:
                                         LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
@@ -183,6 +207,9 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                                     case Operator::Minus:
                                     case Operator::Compl:
                                         break;
+                                    case Operator::Question:
+                                        type = AbaciValue::String;
+                                        break;
                                     default:
                                         LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
                                 }
@@ -194,6 +221,9 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                                         break;
                                     case Operator::Minus:
                                         break;
+                                    case Operator::Question:
+                                        type = AbaciValue::String;
+                                        break;
                                     default:
                                         LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
                                 }
@@ -201,6 +231,31 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                             case AbaciValue::Complex:
                                 switch (op) {
                                     case Operator::Minus:
+                                        break;
+                                    case Operator::Question:
+                                        type = AbaciValue::String;
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
+                                break;
+                            case AbaciValue::String:
+                            case AbaciValue::List:
+                                switch (op) {
+                                    case Operator::Bang:
+                                        type = AbaciValue::Integer;
+                                        break;
+                                    case Operator::Question:
+                                        type = AbaciValue::String;
+                                        break;
+                                    default:
+                                        LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
+                                }
+                                break;
+                            case AbaciValue::Instance:
+                                switch (op) {
+                                    case Operator::Question:
+                                        type = AbaciValue::String;
                                         break;
                                     default:
                                         LogicError2(BadOperatorForType, operatorToString(op), typeToString(type));
@@ -274,8 +329,8 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
         case ExprNode::VariableNode: {
             const Variable& variable = std::get<ExprNode::VariableNode>(node.data);
             if (locals) {
-                if (auto [ vars, index ] = locals->getIndex(variable.name); index != LocalSymbols::noVariable) {
-                    push(removeConstFromType(vars->getType(index)));
+                if (auto [ variables, index ] = locals->getIndex(variable.name); index != LocalSymbols::noVariable) {
+                    push(removeConstFromType(variables->getType(index)));
                     return;
                 }
             }
@@ -283,7 +338,7 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                 push(removeConstFromType(context->globals->getType(globalIndex)));
             }
             else {
-                LogicError1(VarNotExist, variable.name);
+                LogicError1(VariableNotExist, variable.name);
             }
             break;
         }
@@ -329,8 +384,8 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
             const std::string& name = data.name.name;
             Type type;
             if (locals) {
-                if (auto [ vars, index ] = locals->getIndex(name); index != LocalSymbols::noVariable) {
-                    type = vars->getType(index);
+                if (auto [ variables, index ] = locals->getIndex(name); index != LocalSymbols::noVariable) {
+                    type = variables->getType(index);
                     for (const auto& member : data.memberList) {
                         if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                             LogicError0(BadObject);
@@ -359,17 +414,17 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
                 return;
             }
             else {
-                LogicError1(VarNotExist, (name == THIS_V) ? THIS : name);
+                LogicError1(VariableNotExist, (name == THIS_V) ? THIS : name);
             }
             break;
         }
         case ExprNode::MethodNode: {
             const auto& methodCall = std::get<ExprNode::MethodNode>(node.data);
             const std::string& name = methodCall.name.name;
-            auto [ vars, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
+            auto [ variables, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
             Type type;
             if (index != LocalSymbols::noVariable) {
-                type = vars->getType(index);
+                type = variables->getType(index);
                 if (isConstant(type)) {
                     LogicError1(NoConstantAssign, name);
                 }
@@ -386,7 +441,7 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
             else {
                 auto globalIndex = context->globals->getIndex(name);
                 if (globalIndex == GlobalSymbols::noVariable) {
-                    LogicError1(VarNotExist, (name == THIS_V) ? THIS : name);
+                    LogicError1(VariableNotExist, (name == THIS_V) ? THIS : name);
                 }
                 type = context->globals->getType(globalIndex);
                 if (isConstant(type)) {
@@ -451,17 +506,202 @@ void TypeEvalGen::operator()(const ExprNode& node) const {
             push(targetType);
             break;
         }
+        case ExprNode::ListItemsNode: {
+            const auto& list = std::get<ExprNode::ListItemsNode>(node.data);
+            if (list.elementType.empty() && list.firstElement->data.index() == ExprNode::UnsetNode) {
+                LogicError0(EmptyListNeedsType);
+            }
+            Type elementType = AbaciValue::None;
+            if (!list.elementType.empty()) {
+                if (auto iter = TypeConversions.find(list.elementType); iter != TypeConversions.end()) {
+                    elementType = iter->second;
+                }
+            }
+            if (list.firstElement->data.index() != ExprNode::UnsetNode) {
+                TypeEvalGen expr(context, cache, locals);
+                expr(*(list.firstElement));
+                if (elementType == AbaciValue::None) {
+                    elementType = expr.get();
+                }
+                else if (elementType != expr.get()) {
+                    LogicError2(ListTypeMismatch, typeToString(elementType), typeToString(expr.get()));
+                }
+                for (const auto& element : *(list.otherElements)) {
+                    TypeEvalGen expr(context, cache, locals);
+                    expr(element);
+                    if (elementType != expr.get()) {
+                        LogicError2(ListTypeMismatch, typeToString(elementType), typeToString(expr.get()));
+                    }
+                }
+            }
+            auto type = std::make_shared<TypeList>();
+            type->elementType = elementType;
+            push(type);
+            break;
+        }
+        case ExprNode::ListIndexNode: {
+            const auto& listIndex = std::get<ExprNode::ListIndexNode>(node.data);
+            if (locals) {
+                if (auto [ variables, index ] = locals->getIndex(listIndex.name.name); index != LocalSymbols::noVariable) {
+                    Type type = variables->getType(index);
+                    if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                        if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+                            for (const auto& indexExpression : listIndex.indexes) {
+                                if (typePtr == nullptr) {
+                                    LogicError1(TooManyIndexes, listIndex.name.name);
+                                }
+                                TypeEvalGen expr(context, cache, locals);
+                                expr(indexExpression);
+                                if (typeToScalar(expr.get()) != AbaciValue::Integer) {
+                                    LogicError0(IndexNotInt);
+                                }
+                                type = typePtr->elementType;
+                                if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                                    typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                                }
+                                else {
+                                    typePtr = nullptr;
+                                }
+                            }
+                            push(type);
+                            return;
+                        }
+                    }
+                    LogicError1(VariableNotList, listIndex.name.name);
+                }
+            }
+            if (auto globalIndex = context->globals->getIndex(listIndex.name.name); globalIndex != GlobalSymbols::noVariable) {
+                Type type = context->globals->getType(globalIndex);
+                if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                    if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+                        for (const auto& indexExpression : listIndex.indexes) {
+                            if (typePtr == nullptr) {
+                                LogicError1(TooManyIndexes, listIndex.name.name);
+                            }
+                            TypeEvalGen expr(context, cache, locals);
+                            expr(indexExpression);
+                            if (typeToScalar(expr.get()) != AbaciValue::Integer) {
+                                LogicError0(IndexNotInt);
+                            }
+                            type = typePtr->elementType;
+                            if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                                typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                            }
+                            else {
+                                typePtr = nullptr;
+                            }
+                        }
+                        push(type);
+                        return;
+                    }
+                }
+                LogicError1(VariableNotList, listIndex.name.name);
+            }
+            else {
+                LogicError1(VariableNotExist, listIndex.name.name);
+            }
+            break;
+        }
+        case ExprNode::DataIndexNode: {
+            const auto& dataIndex = std::get<ExprNode::DataIndexNode>(node.data);
+            const std::string& name = dataIndex.name.name;
+            Type type;
+            if (locals) {
+                if (auto [ variables, index ] = locals->getIndex(name); index != LocalSymbols::noVariable) {
+                    type = variables->getType(index);
+                    for (const auto& member : dataIndex.memberList) {
+                        if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
+                            LogicError0(BadObject);
+                        }
+                        auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
+                        Assert(instanceType != nullptr);
+                        auto index = cache->getMemberIndex(cache->getClass(instanceType->className), member);
+                        type = instanceType->variableTypes.at(index);
+                    }
+                    if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                        if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+                            for (const auto& indexExpression : dataIndex.indexes) {
+                                if (typePtr == nullptr) {
+                                    LogicError1(TooManyIndexes, name);
+                                }
+                                TypeEvalGen expr(context, cache, locals);
+                                expr(indexExpression);
+                                if (typeToScalar(expr.get()) != AbaciValue::Integer) {
+                                    LogicError0(IndexNotInt);
+                                }
+                                type = typePtr->elementType;
+                                if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                                    typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                                }
+                                else {
+                                    typePtr = nullptr;
+                                }
+                            }
+                            push(type);
+                            return;
+                        }
+                    }
+                    LogicError1(VariableNotList, name);
+                }
+            }
+            if (auto globalIndex = context->globals->getIndex(name); globalIndex != GlobalSymbols::noVariable) {
+                type = context->globals->getType(globalIndex);
+                for (const auto& member : dataIndex.memberList) {
+                    if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
+                        LogicError0(BadObject);
+                    }
+                    auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
+                    Assert(instanceType != nullptr);
+                    auto index = cache->getMemberIndex(cache->getClass(instanceType->className), member);
+                    type = instanceType->variableTypes.at(index);
+                }
+                if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                    if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+                        for (const auto& indexExpression : dataIndex.indexes) {
+                            if (typePtr == nullptr) {
+                                LogicError1(TooManyIndexes, dataIndex.name.name);
+                            }
+                            TypeEvalGen expr(context, cache, locals);
+                            expr(indexExpression);
+                            if (typeToScalar(expr.get()) != AbaciValue::Integer) {
+                                LogicError0(IndexNotInt);
+                            }
+                            type = typePtr->elementType;
+                            if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                                typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                            }
+                            else {
+                                typePtr = nullptr;
+                            }
+                        }
+                        push(type);
+                        return;
+                    }
+                }
+                LogicError1(VariableNotList, name);
+                return;
+            }
+            else {
+                LogicError1(VariableNotExist, (name == THIS_V) ? THIS : name);
+            }
+            break;
+        }
         default:
             UnexpectedError0(BadNode);
     }
 }
 
-AbaciValue::Type TypeEvalGen::promote(const Type& type_operand1, const Type& type_operand2) const {
-    if (!std::holds_alternative<AbaciValue::Type>(type_operand1)
-        || !std::holds_alternative<AbaciValue::Type>(type_operand2)) {
-        LogicError0(NoObject);
+Type TypeEvalGen::promote(const Type& typeOperand1, const Type& typeOperand2) const {
+    if (std::holds_alternative<std::shared_ptr<TypeBase>>(typeOperand1)
+        || std::holds_alternative<std::shared_ptr<TypeBase>>(typeOperand2)) {
+            if (typeOperand1 == typeOperand2) {
+                return typeOperand1;
+            }
+            else {
+                LogicError2(IncompatibleTypes, typeToString(typeOperand1), typeToString(typeOperand2));
+            }
     }
-    auto operand1 = std::get<AbaciValue::Type>(type_operand1), operand2 = std::get<AbaciValue::Type>(type_operand2);
+    auto operand1 = std::get<AbaciValue::Type>(typeOperand1), operand2 = std::get<AbaciValue::Type>(typeOperand2);
     if (operand1 == operand2) {
         return operand1;
     }
@@ -524,7 +764,7 @@ void TypeCodeGen::codeGen(const InitStmt& define) const {
     expr(define.value);
     if (locals) {
         if (locals->getIndex(define.name.name, true).second != LocalSymbols::noVariable) {
-            LogicError1(VarExists, define.name.name);
+            LogicError1(VariableExists, define.name.name);
         }
         else if (define.assign == Operator::Equal) {
             locals->add(define.name.name, nullptr, addConstToType(expr.get()));
@@ -535,7 +775,7 @@ void TypeCodeGen::codeGen(const InitStmt& define) const {
     }
     else {
         if (context->globals->getIndex(define.name.name) != GlobalSymbols::noVariable) {
-            LogicError1(VarExists, define.name.name);
+            LogicError1(VariableExists, define.name.name);
         }
         else if (define.assign == Operator::Equal) {
             Assert(context->rawArray.add() == context->globals->add(define.name.name, addConstToType(expr.get())));
@@ -550,25 +790,25 @@ template<>
 void TypeCodeGen::codeGen(const AssignStmt& assign) const {
     TypeEvalGen expr(context, cache, locals);
     expr(assign.value);
-    auto [ vars, index ] = locals ? locals->getIndex(assign.name.name) : std::pair{ nullptr, LocalSymbols::noVariable };
+    auto [ variables, index ] = locals ? locals->getIndex(assign.name.name) : std::pair{ nullptr, LocalSymbols::noVariable };
     if (index != LocalSymbols::noVariable) {
-        if (isConstant(vars->getType(index))) {
+        if (isConstant(variables->getType(index))) {
             LogicError1(NoConstantAssign, assign.name.name);
         }
-        else if (vars->getType(index) != expr.get()) {
-            LogicError1(VarType, assign.name.name);
+        else if (variables->getType(index) != expr.get()) {
+            LogicError1(VariableType, assign.name.name);
         }
     }
     else {
         auto globalIndex = context->globals->getIndex(assign.name.name);
         if (globalIndex == GlobalSymbols::noVariable) {
-            LogicError1(VarNotExist, assign.name.name);
+            LogicError1(VariableNotExist, assign.name.name);
         }
         else if (isConstant(context->globals->getType(globalIndex))) {
             LogicError1(NoConstantAssign, assign.name.name);
         }
         else if (context->globals->getType(globalIndex) != expr.get()) {
-            LogicError1(VarType, assign.name.name);
+            LogicError1(VariableType, assign.name.name);
         }
     }
 }
@@ -589,10 +829,10 @@ void TypeCodeGen::codeGen(const WhileStmt& whileStmt) const {
 }
 
 template<>
-void TypeCodeGen::codeGen(const RepeatStmt& repeat_stmt) const {
-    (*this)(repeat_stmt.loopBlock);
+void TypeCodeGen::codeGen(const RepeatStmt& repeatStmt) const {
+    (*this)(repeatStmt.loopBlock);
     TypeEvalGen expr(context, cache, locals);
-    expr(repeat_stmt.condition);
+    expr(repeatStmt.condition);
 }
 
 template<>
@@ -684,10 +924,10 @@ void TypeCodeGen::codeGen(const DataAssignStmt& dataAssign) const {
     const std::string& name = dataAssign.name.name;
     TypeEvalGen expr(context, cache, locals);
     expr(dataAssign.value);
-    auto [ vars, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
+    auto [ variables, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
     Type type;
     if (index != LocalSymbols::noVariable) {
-        type = vars->getType(index);
+        type = variables->getType(index);
         if (isConstant(type)) {
             LogicError1(NoConstantAssign, name);
         }
@@ -707,7 +947,7 @@ void TypeCodeGen::codeGen(const DataAssignStmt& dataAssign) const {
     else {
         auto globalIndex = context->globals->getIndex(name);
         if (globalIndex == GlobalSymbols::noVariable) {
-            LogicError1(VarNotExist, (name == THIS_V) ? THIS : name);
+            LogicError1(VariableNotExist, (name == THIS_V) ? THIS : name);
         }
         else if (isConstant(context->globals->getType(globalIndex))) {
             LogicError1(NoConstantAssign, name);
@@ -731,10 +971,10 @@ void TypeCodeGen::codeGen(const DataAssignStmt& dataAssign) const {
 template<>
 void TypeCodeGen::codeGen(const MethodCall& methodCall) const {
     const std::string& name = methodCall.name.name;
-    auto [ vars, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
+    auto [ variables, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
     Type type;
     if (index != LocalSymbols::noVariable) {
-        type = vars->getType(index);
+        type = variables->getType(index);
         if (isConstant(type)) {
             LogicError1(NoConstantAssign, name);
         }
@@ -751,7 +991,7 @@ void TypeCodeGen::codeGen(const MethodCall& methodCall) const {
     else {
         auto globalIndex = context->globals->getIndex(name);
         if (globalIndex == GlobalSymbols::noVariable) {
-            LogicError1(VarNotExist, (name == THIS_V) ? THIS : name);
+            LogicError1(VariableNotExist, (name == THIS_V) ? THIS : name);
         }
         type = context->globals->getType(globalIndex);
         if (isConstant(type)) {
@@ -793,8 +1033,178 @@ void TypeCodeGen::codeGen(const MethodCall& methodCall) const {
 }
 
 template<>
-void TypeCodeGen::codeGen([[maybe_unused]] const ExpressionStmt& expression_stmt) const {
+void TypeCodeGen::codeGen([[maybe_unused]] const ExpressionStmt& expressionStmt) const {
     LogicError0(NoExpression);
+}
+
+template<>
+void TypeCodeGen::codeGen(const ListAssignStmt& listAssign) const {
+    TypeEvalGen expr(context, cache, locals);
+    expr(listAssign.value);
+    auto [ variables, index ] = locals ? locals->getIndex(listAssign.name.name) : std::pair{ nullptr, LocalSymbols::noVariable };
+    if (index != LocalSymbols::noVariable) {
+        Type type = variables->getType(index);
+        if (isConstant(variables->getType(index))) {
+            LogicError1(NoConstantAssign, listAssign.name.name);
+        }
+        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+            if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+                for (const auto& indexExpression : listAssign.indexes) {
+                    if (typePtr == nullptr) {
+                        LogicError1(TooManyIndexes, listAssign.name.name);
+                    }
+                    TypeEvalGen expr(context, cache, locals);
+                    expr(indexExpression);
+                    if (typeToScalar(expr.get()) != AbaciValue::Integer) {
+                        LogicError0(IndexNotInt);
+                    }
+                    type = typePtr->elementType;
+                    if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                        typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    }
+                    else {
+                        typePtr = nullptr;
+                    }
+                }
+                if (expr.get() != AbaciValue::None && type != removeConstFromType(expr.get())) {
+                    LogicError2(ListAssignMismatch, typeToString(type), typeToString(expr.get()));
+                }
+                return;
+            }
+        }
+        LogicError1(VariableNotList, listAssign.name.name);
+    }
+    else {
+        auto globalIndex = context->globals->getIndex(listAssign.name.name);
+        if (globalIndex == GlobalSymbols::noVariable) {
+            LogicError1(VariableNotExist, listAssign.name.name);
+        }
+        Type type = context->globals->getType(globalIndex);
+        if (isConstant(type)) {
+            LogicError1(NoConstantAssign, listAssign.name.name);
+        }
+        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+            if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+                for (const auto& indexExpression : listAssign.indexes) {
+                    if (typePtr == nullptr) {
+                        LogicError1(TooManyIndexes, listAssign.name.name);
+                    }
+                    TypeEvalGen expr(context, cache, locals);
+                    expr(indexExpression);
+                    if (typeToScalar(expr.get()) != AbaciValue::Integer) {
+                        LogicError0(IndexNotInt);
+                    }
+                    type = typePtr->elementType;
+                    if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                        typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    }
+                    else {
+                        typePtr = nullptr;
+                    }
+                }
+                if (expr.get() != AbaciValue::None && type != removeConstFromType(expr.get())) {
+                    LogicError2(ListAssignMismatch, typeToString(type), typeToString(expr.get()));
+                }
+                return;
+            }
+        }
+        LogicError1(VariableNotList, listAssign.name.name);
+    }
+}
+
+template<>
+void TypeCodeGen::codeGen(const DataListAssignStmt& dataListAssign) const {
+    const std::string& name = dataListAssign.name.name;
+    TypeEvalGen expr(context, cache, locals);
+    expr(dataListAssign.value);
+    auto [ variables, index ] = locals ? locals->getIndex(name) : std::pair{ nullptr, LocalSymbols::noVariable };
+    Type type;
+    if (index != LocalSymbols::noVariable) {
+        type = variables->getType(index);
+        if (isConstant(type)) {
+            LogicError1(NoConstantAssign, name);
+        }
+        for (const auto& member : dataListAssign.memberList) {
+            if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
+                LogicError0(BadObject);
+            }
+            auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
+            Assert(instanceType != nullptr);
+            auto index = cache->getMemberIndex(cache->getClass(instanceType->className), member);
+            type = instanceType->variableTypes.at(index);
+        }
+        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+            if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+                for (const auto& indexExpression : dataListAssign.indexes) {
+                    if (typePtr == nullptr) {
+                        LogicError1(TooManyIndexes, dataListAssign.name.name);
+                    }
+                    TypeEvalGen expr(context, cache, locals);
+                    expr(indexExpression);
+                    if (typeToScalar(expr.get()) != AbaciValue::Integer) {
+                        LogicError0(IndexNotInt);
+                    }
+                    type = typePtr->elementType;
+                    if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                        typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    }
+                    else {
+                        typePtr = nullptr;
+                    }
+                }
+                if (expr.get() != AbaciValue::None && type != removeConstFromType(expr.get())) {
+                    LogicError2(ListAssignMismatch, typeToString(type), typeToString(expr.get()));
+                }
+                return;
+            }
+        }
+        LogicError1(VariableNotList, name);
+    }
+    else {
+        auto globalIndex = context->globals->getIndex(name);
+        if (globalIndex == GlobalSymbols::noVariable) {
+            LogicError1(VariableNotExist, (name == THIS_V) ? THIS : name);
+        }
+        else if (isConstant(context->globals->getType(globalIndex))) {
+            LogicError1(NoConstantAssign, name);
+        }
+        type = context->globals->getType(globalIndex);
+        for (const auto& member : dataListAssign.memberList) {
+            if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
+                LogicError0(BadObject);
+            }
+            auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
+            Assert(instanceType != nullptr);
+            auto index = cache->getMemberIndex(cache->getClass(instanceType->className), member);
+            type = instanceType->variableTypes.at(index);
+        }
+        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+            if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
+                for (const auto& indexExpression : dataListAssign.indexes) {
+                    if (typePtr == nullptr) {
+                        LogicError1(TooManyIndexes, dataListAssign.name.name);
+                    }
+                    TypeEvalGen expr(context, cache, locals);
+                    expr(indexExpression);
+                    if (typeToScalar(expr.get()) != AbaciValue::Integer) {
+                        LogicError0(IndexNotInt);
+                    }
+                    type = typePtr->elementType;
+                    if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                        typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    }
+                    else {
+                        typePtr = nullptr;
+                    }
+                }
+                if (expr.get() != AbaciValue::None && type != removeConstFromType(expr.get())) {
+                    LogicError2(ListAssignMismatch, typeToString(type), typeToString(expr.get()));
+                }
+                return;
+            }
+        }
+        LogicError1(VariableNotList, name);
+    }
 }
 
 void TypeCodeGen::operator()(const StmtNode& stmt) const {
@@ -846,6 +1256,12 @@ void TypeCodeGen::operator()(const StmtNode& stmt) const {
     }
     else if (dynamic_cast<const ExpressionStmt*>(stmtData)) {
         codeGen(dynamic_cast<const ExpressionStmt&>(*stmtData));
+    }
+    else if (dynamic_cast<const ListAssignStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const ListAssignStmt&>(*stmtData));
+    }
+    else if (dynamic_cast<const DataListAssignStmt*>(stmtData)) {
+        codeGen(dynamic_cast<const DataListAssignStmt&>(*stmtData));
     }
     else {
         UnexpectedError0(BadStmtNode);

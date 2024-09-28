@@ -45,9 +45,13 @@ void JIT::initialize() {
     stringType->setBody({ PointerType::get(builder.getInt8Ty(), 0), builder.getInt64Ty() });
     StructType *instanceType = StructType::create(*context, "struct.Instance");
     instanceType->setBody({ PointerType::get(builder.getInt8Ty(), 0), builder.getInt64Ty(), PointerType::get(abaciValueType, 0) });
+    StructType *listType = StructType::create(*context, "struct.List");
+    listType->setBody({ builder.getInt64Ty(), PointerType::get(abaciValueType, 0) });
     StructType *contextType = StructType::create(*context, "struct.Context");
     contextType->setBody({ PointerType::get(abaciValueType, 0), PointerType::get(builder.getInt8Ty(), 0), PointerType::get(builder.getInt8Ty(), 0), PointerType::get(builder.getInt8Ty(), 0), PointerType::get(builder.getInt8Ty(), 0) });
     globalContext = new llvm::GlobalVariable(*module, PointerType::get(contextType, 0), false, llvm::GlobalValue::ExternalLinkage, ConstantPointerNull::get(PointerType::get(contextType, 0)), "Context");
+    FunctionType *printValueNilType = FunctionType::get(builder.getVoidTy(), { PointerType::get(contextType, 0), PointerType::get(instanceType, 0) }, false);
+    Function::Create(printValueNilType, Function::ExternalLinkage, "printValueNil", module.get());
     FunctionType *printValueBooleanType = FunctionType::get(builder.getVoidTy(), { PointerType::get(contextType, 0), builder.getInt1Ty() }, false);
     Function::Create(printValueBooleanType, Function::ExternalLinkage, "printValueBoolean", module.get());
     FunctionType *printValueIntegerType = FunctionType::get(builder.getVoidTy(), { PointerType::get(contextType, 0), builder.getInt64Ty() }, false);
@@ -60,6 +64,8 @@ void JIT::initialize() {
     Function::Create(printValueStringType, Function::ExternalLinkage, "printValueString", module.get());
     FunctionType *printValueInstanceType = FunctionType::get(builder.getVoidTy(), { PointerType::get(contextType, 0), PointerType::get(instanceType, 0) }, false);
     Function::Create(printValueInstanceType, Function::ExternalLinkage, "printValueInstance", module.get());
+    FunctionType *printValueListType = FunctionType::get(builder.getVoidTy(), { PointerType::get(contextType, 0), PointerType::get(listType, 0) }, false);
+    Function::Create(printValueListType, Function::ExternalLinkage, "printValueList", module.get());
     FunctionType *printCommaType = FunctionType::get(builder.getVoidTy(), { PointerType::get(contextType, 0) }, false);
     Function::Create(printCommaType, Function::ExternalLinkage, "printComma", module.get());
     FunctionType *printLnType = FunctionType::get(builder.getVoidTy(), { PointerType::get(contextType, 0) }, false);
@@ -70,24 +76,32 @@ void JIT::initialize() {
     Function::Create(makeStringType, Function::ExternalLinkage, "makeString", module.get());
     FunctionType *makeInstanceType = FunctionType::get(PointerType::get(instanceType, 0), { PointerType::get(builder.getInt8Ty(), 0), builder.getInt64Ty() }, false);
     Function::Create(makeInstanceType, Function::ExternalLinkage, "makeInstance", module.get());
+    FunctionType *makeListType = FunctionType::get(PointerType::get(listType, 0), { builder.getInt64Ty() }, false);
+    Function::Create(makeListType, Function::ExternalLinkage, "makeList", module.get());
     FunctionType *cloneComplexType = FunctionType::get(PointerType::get(complexType, 0), { PointerType::get(complexType, 0) }, false);
     Function::Create(cloneComplexType, Function::ExternalLinkage, "cloneComplex", module.get());
     FunctionType *cloneStringType = FunctionType::get(PointerType::get(stringType, 0), { PointerType::get(stringType, 0) }, false);
     Function::Create(cloneStringType, Function::ExternalLinkage, "cloneString", module.get());
     FunctionType *cloneInstanceType = FunctionType::get(PointerType::get(instanceType, 0), { PointerType::get(instanceType, 0) }, false);
     Function::Create(cloneInstanceType, Function::ExternalLinkage, "cloneInstance", module.get());
+    FunctionType *cloneListType = FunctionType::get(PointerType::get(listType, 0), { PointerType::get(listType, 0) }, false);
+    Function::Create(cloneListType, Function::ExternalLinkage, "cloneList", module.get());
     FunctionType *complexMathType = FunctionType::get(PointerType::get(complexType, 0), { builder.getInt32Ty(), PointerType::get(complexType, 0), PointerType::get(complexType, 0) }, false);
     Function::Create(complexMathType, Function::ExternalLinkage, "opComplex", module.get());
-    FunctionType *compareStringType = FunctionType::get(builder.getInt1Ty(), { PointerType::get(stringType, 0),  PointerType::get(stringType, 0) }, false);
+    FunctionType *compareStringType = FunctionType::get(builder.getInt1Ty(), { PointerType::get(stringType, 0), PointerType::get(stringType, 0) }, false);
     Function::Create(compareStringType, Function::ExternalLinkage, "compareString", module.get());
-    FunctionType *concatStringType = FunctionType::get(PointerType::get(stringType, 0), { PointerType::get(stringType, 0),  PointerType::get(stringType, 0) }, false);
+    FunctionType *concatStringType = FunctionType::get(PointerType::get(stringType, 0), { PointerType::get(stringType, 0), PointerType::get(stringType, 0) }, false);
     Function::Create(concatStringType, Function::ExternalLinkage, "concatString", module.get());
+    FunctionType *deleteElementType = FunctionType::get(builder.getVoidTy(), { PointerType::get(listType, 0), builder.getInt64Ty() }, false);
+    Function::Create(deleteElementType, Function::ExternalLinkage, "deleteElement", module.get());
     FunctionType *destroyComplexType = FunctionType::get(builder.getVoidTy(), { PointerType::get(complexType, 0) }, false);
     Function::Create(destroyComplexType, Function::ExternalLinkage, "destroyComplex", module.get());
     FunctionType *destroyStringType = FunctionType::get(builder.getVoidTy(), { PointerType::get(stringType, 0) }, false);
     Function::Create(destroyStringType, Function::ExternalLinkage, "destroyString", module.get());
     FunctionType *destroyInstanceType = FunctionType::get(builder.getVoidTy(), { PointerType::get(instanceType, 0) }, false);
     Function::Create(destroyInstanceType, Function::ExternalLinkage, "destroyInstance", module.get());
+    FunctionType *destroyListType = FunctionType::get(builder.getVoidTy(), { PointerType::get(listType, 0) }, false);
+    Function::Create(destroyListType, Function::ExternalLinkage, "destroyList", module.get());
     FunctionType *userInputType = FunctionType::get(PointerType::get(stringType, 0), { PointerType::get(contextType, 0) }, false);
     Function::Create(userInputType, Function::ExternalLinkage, "userInput", module.get());
     FunctionType *toTypeType = FunctionType::get(builder.getInt64Ty(), { builder.getInt32Ty(), builder.getInt64Ty(), builder.getInt32Ty() }, false);
@@ -150,7 +164,6 @@ void JIT::initialize() {
 
 ExecFunctionType JIT::getExecFunction() {
     builder.CreateRetVoid();
-    //verifyModule(*module, &errs());
     InitializeNativeTarget();
     InitializeNativeTargetAsmPrinter();
     jit = jitBuilder.create();
@@ -164,12 +177,14 @@ ExecFunctionType JIT::getExecFunction() {
         UnexpectedError0(NoModule);
     }
     if (auto err = (*jit)->getMainJITDylib().define(absoluteSymbols(SymbolMap{
+            RUNTIME_FUNCTION("printValueNil", &printValue<Instance*>),
             RUNTIME_FUNCTION("printValueBoolean", &printValue<bool>),
             RUNTIME_FUNCTION("printValueInteger", &printValue<uint64_t>),
             RUNTIME_FUNCTION("printValueFloating", &printValue<double>),
             RUNTIME_FUNCTION("printValueComplex", &printValue<Complex*>),
             RUNTIME_FUNCTION("printValueString", &printValue<String*>),
             RUNTIME_FUNCTION("printValueInstance", &printValue<Instance*>),
+            RUNTIME_FUNCTION("printValueList", &printValue<List*>),
             RUNTIME_FUNCTION("printComma", &printComma),
             RUNTIME_FUNCTION("printLn", &printLn),
             RUNTIME_FUNCTION("userInput", &userInput),
@@ -177,15 +192,19 @@ ExecFunctionType JIT::getExecFunction() {
             RUNTIME_FUNCTION("makeComplex", &makeComplex),
             RUNTIME_FUNCTION("makeString", &makeString),
             RUNTIME_FUNCTION("makeInstance", &makeInstance),
+            RUNTIME_FUNCTION("makeList", &makeList),
             RUNTIME_FUNCTION("opComplex", &opComplex),
             RUNTIME_FUNCTION("compareString", &compareString),
             RUNTIME_FUNCTION("concatString", &concatString),
+            RUNTIME_FUNCTION("deleteElement", &deleteElement),
             RUNTIME_FUNCTION("cloneComplex", &cloneComplex),
             RUNTIME_FUNCTION("cloneString", &cloneString),
             RUNTIME_FUNCTION("cloneInstance", &cloneInstance),
+            RUNTIME_FUNCTION("cloneList", &cloneList),
             RUNTIME_FUNCTION("destroyComplex", &destroyComplex),
             RUNTIME_FUNCTION("destroyString", &destroyString),
             RUNTIME_FUNCTION("destroyInstance", &destroyInstance),
+            RUNTIME_FUNCTION("destroyList", &destroyList),
             RUNTIME_FUNCTION("pow", static_cast<double(*)(double,double)>(&pow)),
             RUNTIME_FUNCTION("memcpy", &memcpy)
         }))) {

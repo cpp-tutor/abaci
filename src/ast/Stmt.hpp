@@ -22,7 +22,7 @@ struct StmtList : std::vector<StmtNode>, LocalSymbols, Temporaries {};
 
 using abaci::utility::Operator;
 
-struct StmtData {
+struct StmtData : position_tagged {
     virtual ~StmtData() {}
 };
 
@@ -136,6 +136,27 @@ struct ExpressionStmt : StmtData {
     ExprNode expression;
 };
 
+struct ListInitStmt : StmtData {
+    Variable name;
+    Operator assign;
+    std::string type;
+    ExprNode firstElement;
+    ExprList otherElements;
+};
+
+struct ListAssignStmt : StmtData {
+    Variable name;
+    ExprList indexes;
+    ExprNode value;
+};
+
+struct DataListAssignStmt : StmtData {
+    Variable name;
+    std::vector<Variable> memberList;
+    ExprList indexes;
+    ExprNode value;
+};
+
 } // namespace abaci::ast
 
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::CommentStmt, commentString)
@@ -155,5 +176,8 @@ BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Class, name, variables, methods)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataAssignStmt, name, memberList, value)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodCall, name, memberList, method, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExpressionStmt, expression)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListInitStmt, name, assign, type, firstElement, otherElements)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListAssignStmt, name, indexes, value)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataListAssignStmt, memberList, name, indexes, value)
 
 #endif

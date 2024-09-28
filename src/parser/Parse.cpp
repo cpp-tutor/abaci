@@ -8,7 +8,6 @@
 #include "ast/Expr.hpp"
 #include "ast/Stmt.hpp"
 #include <boost/spirit/home/x3.hpp>
-#include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
 #include <boost/spirit/home/x3/support/utility/error_reporting.hpp>
 #include <boost/spirit/home/x3/support/utility/annotate_on_success.hpp>
 #include <optional>
@@ -24,7 +23,6 @@ using x3::string;
 using x3::lit;
 using x3::lexeme;
 using x3::ascii::space;
-using x3::position_tagged;
 
 using abaci::utility::AbaciValue;
 using abaci::utility::Constants;
@@ -43,11 +41,14 @@ using abaci::ast::MethodValueCall;
 using abaci::ast::UserInput;
 using abaci::ast::TypeConvItems;
 using abaci::ast::TypeConv;
+using abaci::ast::ListItems;
+using abaci::ast::List;
+using abaci::ast::ListIndex;
+using abaci::ast::DataListIndex;
 using abaci::ast::StmtNode;
 using abaci::ast::StmtList;
 using abaci::ast::CommentStmt;
 using abaci::ast::PrintStmt;
-using abaci::ast::PrintList;
 using abaci::ast::InitStmt;
 using abaci::ast::AssignStmt;
 using abaci::ast::IfStmt;
@@ -64,6 +65,8 @@ using abaci::ast::Class;
 using abaci::ast::DataAssignStmt;
 using abaci::ast::MethodCall;
 using abaci::ast::ExpressionStmt;
+using abaci::ast::ListAssignStmt;
+using abaci::ast::DataListAssignStmt;
 
 struct error_handler {
     template <typename Iterator, typename Exception, typename Context>
@@ -92,11 +95,11 @@ struct base_number_str_class;
 struct boolean_str_class;
 struct string_str_class;
 
-x3::rule<class number_str, std::string> number_str;
-x3::rule<class base_number_str, std::string> base_number_str;
-x3::rule<class boolean_str, std::string> boolean_str;
-x3::rule<class string_str, std::string> string_str;
-x3::rule<class value, std::size_t> value;
+x3::rule<struct number_str_class, std::string> number_str;
+x3::rule<struct base_number_str_class, std::string> base_number_str;
+x3::rule<struct boolean_str_class, std::string> boolean_str;
+x3::rule<struct string_str_class, std::string> string_str;
+x3::rule<struct value_class, std::size_t> value;
 
 struct number_str_class : x3::annotate_on_success {};
 struct base_number_str_class : x3::annotate_on_success {};
@@ -125,6 +128,8 @@ x3::rule<class bitwise_xor, Operator> const bitwise_xor;
 x3::rule<class bitwise_compl, Operator> const bitwise_compl;
 x3::rule<class comma, Operator> const comma;
 x3::rule<class semicolon, Operator> const semicolon;
+x3::rule<class question, Operator> const question;
+x3::rule<class bang, Operator> const bang;
 x3::rule<class from, Operator> const from;
 x3::rule<class to, Operator> const to;
 
@@ -141,28 +146,28 @@ struct factor_class;
 struct unary_class;
 struct index_class;
 
-x3::rule<class expression_class, ExprNode> const expression;
-x3::rule<class logic_or_class, ExprList> const logic_or;
+x3::rule<struct expression_class, ExprNode> const expression;
+x3::rule<struct logic_or_class, ExprList> const logic_or;
 x3::rule<class logic_and_n, ExprNode> const logic_and_n;
-x3::rule<class logic_and_class, ExprList> const logic_and;
+x3::rule<struct logic_and_class, ExprList> const logic_and;
 x3::rule<class bit_or_n, ExprNode> const bit_or_n;
-x3::rule<class bit_or_class, ExprList> const bit_or;
+x3::rule<struct bit_or_class, ExprList> const bit_or;
 x3::rule<class bit_xor_n, ExprNode> const bit_xor_n;
-x3::rule<class bit_xor_class, ExprList> const bit_xor;
+x3::rule<struct bit_xor_class, ExprList> const bit_xor;
 x3::rule<class bit_and_n, ExprNode> const bit_and_n;
-x3::rule<class bit_and_class, ExprList> const bit_and;
+x3::rule<struct bit_and_class, ExprList> const bit_and;
 x3::rule<class equality_n, ExprNode> const equality_n;
-x3::rule<class equality_class, ExprList> const equality;
+x3::rule<struct equality_class, ExprList> const equality;
 x3::rule<class comaprison_n, ExprNode> const comparison_n;
-x3::rule<class comparison_class, ExprList> const comparison;
+x3::rule<struct comparison_class, ExprList> const comparison;
 x3::rule<class term_n, ExprNode> const term_n;
-x3::rule<class term_class, ExprList> const term;
+x3::rule<struct term_class, ExprList> const term;
 x3::rule<class factor_n, ExprNode> const factor_n;
-x3::rule<class factor_class, ExprList> const factor;
+x3::rule<struct factor_class, ExprList> const factor;
 x3::rule<class unary_n, ExprNode> const unary_n;
-x3::rule<class unary_class, ExprList> const unary;
+x3::rule<struct unary_class, ExprList> const unary;
 x3::rule<class index_n, ExprNode> const index_n;
-x3::rule<class index_class, ExprList> const index;
+x3::rule<struct index_class, ExprList> const index;
 x3::rule<class primary_n, ExprNode> const primary_n;
 
 struct expression_class : error_handler, x3::annotate_on_success {};
@@ -181,10 +186,12 @@ struct index_class : x3::annotate_on_success {};
 struct identifier_class;
 struct variable_class;
 struct this_ptr_class;
+struct list_items_class;
+struct list_index_class;
 
-x3::rule<class identifier_class, std::string> const identifier;
-x3::rule<class variable_class, Variable> const variable;
-x3::rule<class this_ptr_class, Variable> const this_ptr;
+x3::rule<struct identifier_class, std::string> const identifier;
+x3::rule<struct variable_class, Variable> const variable;
+x3::rule<struct this_ptr_class, Variable> const this_ptr;
 x3::rule<class function_value_call, FunctionValueCall> const function_value_call;
 x3::rule<class data_value_call, DataMember> const data_value_call;
 x3::rule<class this_value_call, DataMember> const this_value_call;
@@ -193,10 +200,17 @@ x3::rule<class this_method_call, MethodValueCall> const this_method_call;
 x3::rule<class user_input, UserInput> const user_input;
 x3::rule<class type_conversion_items, TypeConvItems> const type_conversion_items;
 x3::rule<class type_conversion, TypeConv> const type_conversion;
+x3::rule<struct list_items_class, ListItems> const list_items;
+x3::rule<struct list_class, List> const list;
+x3::rule<struct list_index_class, ListIndex> const list_index;
+x3::rule<class data_list_index, DataListIndex> const data_list_index;
+x3::rule<class this_list_index, DataListIndex> const this_list_index;
 
 struct identitifer_class : x3::annotate_on_success {};
 struct variable_class : x3::annotate_on_success {};
 struct this_ptr_class : x3::annotate_on_success {};
+struct list_items_class : x3::annotate_on_success {};
+struct list_index_class : x3::annotate_on_success {};
 
 struct comment_items_class;
 struct comment_class;
@@ -231,51 +245,61 @@ struct data_assign_items_class;
 struct this_assign_items_class;
 struct data_assign_stmt_class;
 struct method_call_items_class;
+struct list_assign_items_class;
+struct list_assign_stmt_class;
+struct this_list_assign_items_class;
+struct data_list_assign_items_class;
+struct data_list_assign_stmt_class;
 struct expression_stmt_items_class;
 struct expression_stmt_class;
 struct statement_class;
 struct block_class;
 
-x3::rule<class comment_items_class, CommentStmt> const comment_items;
-x3::rule<class comment_class, StmtNode> const comment;
-x3::rule<class print_items_class, PrintStmt> const print_items;
-x3::rule<class print_stmt_class, StmtNode> const print_stmt;
-x3::rule<class let_items_class, InitStmt> const let_items;
-x3::rule<class let_stmt_class, StmtNode> const let_stmt;
-x3::rule<class assign_items_class, AssignStmt> const assign_items;
-x3::rule<class assign_stmt_class, StmtNode> const assign_stmt;
-x3::rule<class if_items_class, IfStmt> const if_items;
-x3::rule<class if_stmt_class, StmtNode> const if_stmt;
-x3::rule<class while_items_class, WhileStmt> const while_items;
-x3::rule<class while_stmt_class, StmtNode> const while_stmt;
-x3::rule<class repeat_items_class, RepeatStmt> const repeat_items;
-x3::rule<class repeat_stmt_class, StmtNode> const repeat_stmt;
-x3::rule<class when_items_class, WhenStmt> const when_items;
-x3::rule<class case_items_class, CaseStmt> const case_items;
-x3::rule<class case_stmt_class, StmtNode> const case_stmt;
-x3::rule<class function_parameters_class, std::vector<Variable>> const function_parameters;
-x3::rule<class function_items_class, Function> const function_items;
-x3::rule<class function_class, StmtNode> const function;
-x3::rule<class expression_function_items_class, ExprFunction> const expression_function_items;
-x3::rule<class expression_function_class, StmtNode> const expression_function;
-x3::rule<class call_args_class, ExprList> const call_args;
-x3::rule<class call_items_class, FunctionCall> const call_items;
-x3::rule<class function_call_class, StmtNode> const function_call;
-x3::rule<class return_items_class, ReturnStmt> const return_items;
-x3::rule<class return_stmt_class, StmtNode> const return_stmt;
-x3::rule<class class_items_class, Class> const class_items;
-x3::rule<class class_template_class, StmtNode> const class_template;
-x3::rule<class data_assign_items_class, DataAssignStmt> const data_assign_items;
-x3::rule<class data_assign_stmt_class, StmtNode> const data_assign_stmt;
-x3::rule<class method_call_items_class, MethodCall> const method_call_items;
-x3::rule<class this_call_items_class, MethodCall> const this_call_items;
-x3::rule<class method_call_class, StmtNode> const method_call;
-x3::rule<class this_assign_items_class, DataAssignStmt> const this_assign_items;
-x3::rule<class expression_stmt_items_class, ExpressionStmt> const expression_stmt_items;
-x3::rule<class expression_stmt_class, StmtNode> const expression_stmt;
-x3::rule<class keywords, std::string> const keywords;
-x3::rule<class statment_class, StmtNode> const statement;
-x3::rule<class block_class, StmtList> const block;
+x3::rule<struct comment_items_class, CommentStmt> const comment_items;
+x3::rule<struct comment_class, StmtNode> const comment;
+x3::rule<struct print_items_class, PrintStmt> const print_items;
+x3::rule<struct print_stmt_class, StmtNode> const print_stmt;
+x3::rule<struct let_items_class, InitStmt> const let_items;
+x3::rule<struct let_stmt_class, StmtNode> const let_stmt;
+x3::rule<struct assign_items_class, AssignStmt> const assign_items;
+x3::rule<struct assign_stmt_class, StmtNode> const assign_stmt;
+x3::rule<struct if_items_class, IfStmt> const if_items;
+x3::rule<struct if_stmt_class, StmtNode> const if_stmt;
+x3::rule<struct while_items_class, WhileStmt> const while_items;
+x3::rule<struct while_stmt_class, StmtNode> const while_stmt;
+x3::rule<struct repeat_items_class, RepeatStmt> const repeat_items;
+x3::rule<struct repeat_stmt_class, StmtNode> const repeat_stmt;
+x3::rule<struct when_items_class, WhenStmt> const when_items;
+x3::rule<struct case_items_class, CaseStmt> const case_items;
+x3::rule<struct case_stmt_class, StmtNode> const case_stmt;
+x3::rule<struct function_parameters_class, std::vector<Variable>> const function_parameters;
+x3::rule<struct function_items_class, Function> const function_items;
+x3::rule<struct function_class, StmtNode> const function;
+x3::rule<struct expression_function_items_class, ExprFunction> const expression_function_items;
+x3::rule<struct expression_function_class, StmtNode> const expression_function;
+x3::rule<struct call_args_class, ExprList> const call_args;
+x3::rule<struct call_items_class, FunctionCall> const call_items;
+x3::rule<struct function_call_class, StmtNode> const function_call;
+x3::rule<struct return_items_class, ReturnStmt> const return_items;
+x3::rule<struct return_stmt_class, StmtNode> const return_stmt;
+x3::rule<struct class_items_class, Class> const class_items;
+x3::rule<struct class_template_class, StmtNode> const class_template;
+x3::rule<struct data_assign_items_class, DataAssignStmt> const data_assign_items;
+x3::rule<struct data_assign_stmt_class, StmtNode> const data_assign_stmt;
+x3::rule<struct method_call_items_class, MethodCall> const method_call_items;
+x3::rule<struct this_call_items_class, MethodCall> const this_call_items;
+x3::rule<struct method_call_class, StmtNode> const method_call;
+x3::rule<struct this_assign_items_class, DataAssignStmt> const this_assign_items;
+x3::rule<struct list_assign_items_class, ListAssignStmt> const list_assign_items;
+x3::rule<struct list_assign_stmt_class, StmtNode> const list_assign_stmt;
+x3::rule<struct data_list_assign_items_class, DataAssignStmt> const data_list_assign_items;
+x3::rule<struct this_list_assign_items_class, DataAssignStmt> const this_list_assign_items;
+x3::rule<struct data_list_assign_stmt_class, StmtNode> const data_list_assign_stmt;
+x3::rule<struct expression_stmt_items_class, ExpressionStmt> const expression_stmt_items;
+x3::rule<struct expression_stmt_class, StmtNode> const expression_stmt;
+x3::rule<struct keywords, std::string> const keywords;
+x3::rule<struct statment_class, StmtNode> const statement;
+x3::rule<struct block_class, StmtList> const block;
 
 struct comment_items_class : error_handler, x3::annotate_on_success {};
 struct comment_class : error_handler, x3::annotate_on_success {};
@@ -310,6 +334,11 @@ struct data_assign_items_class : error_handler, x3::annotate_on_success {};
 struct this_assign_items_class : error_handler, x3::annotate_on_success {};
 struct data_assign_stmt_class : error_handler, x3::annotate_on_success {};
 struct method_call_items_class : error_handler, x3::annotate_on_success {};
+struct list_assign_items_class : error_handler, x3::annotate_on_success {};
+struct list_assign_stmt_class : error_handler, x3::annotate_on_success {};
+struct this_list_assign_items_class : error_handler, x3::annotate_on_success {};
+struct data_list_assign_items_class : error_handler, x3::annotate_on_success {};
+struct data_list_assign_stmt_class : error_handler, x3::annotate_on_success {};
 struct expression_stmt_items_class : error_handler, x3::annotate_on_success {};
 struct expression_stmt_class : error_handler, x3::annotate_on_success {};
 struct statement_class : error_handler, x3::annotate_on_success {};
@@ -379,6 +408,13 @@ auto makeString = [](auto& ctx) {
     _val(ctx) = ConstantsTable()->add(str);
 };
 
+auto makeNil = [](auto& ctx) {
+    if (!ConstantsTable()) {
+        return;
+    }
+    _val(ctx) = ConstantsTable()->add(nullptr);
+};
+
 auto makeThisPtr = [](auto& ctx){
     _val(ctx) = Variable(THIS_V);
 };
@@ -387,8 +423,13 @@ auto makeTypeConversion = [](auto& ctx){
     const TypeConvItems& items = _attr(ctx);
     auto iter = TypeConversions.find(items.toType);
     if (iter != TypeConversions.end()) {
-        _val(ctx) = TypeConv{ position_tagged{}, iter->second, std::make_shared<ExprNode>(items.expression) };
+        _val(ctx) = TypeConv{ iter->second, std::make_shared<ExprNode>(items.expression) };
     }
+};
+
+auto makeList = [](auto& ctx){
+    const ListItems& items = _attr(ctx);
+    _val(ctx) = List{ std::make_shared<ExprNode>(items.firstElement), std::make_shared<ExprList>(items.otherElements), items.elementType };
 };
 
 template<std::size_t Ty = ExprNode::Unset>
@@ -429,7 +470,7 @@ const auto base_number_str_def = lexeme[string(HEX_PREFIX) >> +( char_('0', '9')
     | lexeme[string(OCT_PREFIX) >> +char_('0', '7')];
 const auto boolean_str_def = string(FALSE) | string(TRUE);
 const auto string_str_def = lexeme['"' > *(char_ - '"') > '"'];
-const auto value_def = base_number_str[makeBaseNumber] | number_str[makeNumber] | boolean_str[makeBoolean] | string_str[makeString];
+const auto value_def = base_number_str[makeBaseNumber] | number_str[makeNumber] | boolean_str[makeBoolean] | string_str[makeString] | lit(NIL)[makeNil];
 
 const auto plus_def = string(PLUS)[getOperator];
 const auto minus_def = string(MINUS)[getOperator];
@@ -456,6 +497,8 @@ const auto bitwise_compl_def = string(BITWISE_COMPL)[getOperator];
 
 const auto comma_def = string(COMMA)[getOperator];
 const auto semicolon_def = string(SEMICOLON)[getOperator];
+const auto question_def = string(QUESTION)[getOperator];
+const auto bang_def = string(BANG)[getOperator];
 const auto from_def = string(FROM)[getOperator];
 const auto to_def = string(TO)[getOperator];
 
@@ -472,6 +515,12 @@ const auto user_input_def = lit(INPUT);
 const auto type_conversion_items_def = ( string(INT) | string(FLOAT) | string(COMPLEX) | string(STR)
     | string(REAL) | string(IMAG) ) >> LEFT_PAREN >> expression >> RIGHT_PAREN;
 const auto type_conversion_def = type_conversion_items[makeTypeConversion];
+const auto list_items_def = LEFT_BRACKET >> -( expression >> *( COMMA >> expression ) ) >> RIGHT_BRACKET >>
+    -( string(BOOL) | string(INT) | string(FLOAT) | string(COMPLEX) | string(STR) );
+const auto list_def = list_items[makeList];
+const auto list_index_def = variable >> +(LEFT_BRACKET >> expression >> RIGHT_BRACKET);
+const auto data_list_index_def = variable >> +( DOT >> variable ) >> +( LEFT_BRACKET >> expression >> RIGHT_BRACKET );
+const auto this_list_index_def = this_ptr >> +( DOT >> variable ) >> +( LEFT_BRACKET >> expression >> RIGHT_BRACKET );
 
 const auto expression_def = logic_or[MakeNode<ExprNode::Boolean>()];
 const auto logic_or_def = logic_and_n >> *( logical_or > logic_and_n );
@@ -493,19 +542,20 @@ const auto term_def = factor_n >> *( ( plus | minus ) > factor_n );
 const auto factor_n_def = factor[MakeNode<ExprNode::Left>()];
 const auto factor_def = unary_n >> *( ( times | floor_divide | divide | modulo ) > unary_n);
 const auto unary_n_def = unary[MakeNode<ExprNode::Unary>()];
-const auto unary_def = *( minus | logical_not | bitwise_compl ) >> index_n;
+const auto unary_def = *( minus | logical_not | bitwise_compl | question | bang ) >> index_n;
 const auto index_n_def = index[MakeNode<ExprNode::Right>()];
 const auto index_def = primary_n >> *( exponent > unary_n );
 const auto primary_n_def = value[MakeNode<>()] | ( LEFT_PAREN > logic_or[MakeNode<ExprNode::Boolean>()] > RIGHT_PAREN )
+    | list[MakeNode<>()] | list_index[MakeNode<>()] | this_list_index[MakeNode<>()] | data_list_index[MakeNode<>()]
     | type_conversion[MakeNode<>()] | function_value_call[MakeNode<>()] | this_method_call[MakeNode<>()] | data_method_call[MakeNode<>()] 
     | this_value_call[MakeNode<>()] | data_value_call[MakeNode<>()] | user_input[MakeNode<>()] | variable[MakeNode<>()];
 
 const auto keywords_def = lit(AND) | CASE | CLASS | COMPLEX | ELSE | ENDCASE | ENDCLASS | ENDFN | ENDIF | ENDWHILE
     | FALSE | FLOAT | FN | IF | IMAG | INPUT | INT | LET | NOT | OR | PRINT | REAL | REPEAT | RETURN | STR | THIS | TRUE | UNTIL | WHEN | WHILE;
 
-const auto comment_items_def = +char_('\40', '\377');
+const auto comment_items_def = lexeme[*( char_ - '\n' )];
 const auto comment_def = REM >> comment_items[MakeStmt<CommentStmt>()];
-const auto print_items_def = expression > -( +comma | semicolon );
+const auto print_items_def = expression >> -( +comma | semicolon );
 const auto print_stmt_def = PRINT >> print_items[MakeStmt<PrintStmt>()];
 const auto let_items_def = variable >> (equal | from) >> expression;
 const auto let_stmt_def = LET >> let_items[MakeStmt<InitStmt>()];
@@ -544,24 +594,30 @@ const auto data_assign_stmt_def = this_assign_items[MakeStmt<DataAssignStmt>()] 
 const auto this_call_items_def = this_ptr >> DOT >> *( variable >> DOT ) >> identifier >> call_args;
 const auto method_call_items_def = variable >> DOT >> *( variable >> DOT ) >> identifier >> call_args;
 const auto method_call_def = this_call_items[MakeStmt<MethodCall>()] | method_call_items[MakeStmt<MethodCall>()];
+const auto list_assign_items_def = variable >> +( LEFT_BRACKET >> expression >> RIGHT_BRACKET ) >> FROM >> expression;
+const auto list_assign_stmt_def = list_assign_items[MakeStmt<ListAssignStmt>()];
+const auto data_list_assign_items_def = variable >> +( DOT >> variable ) >> +( LEFT_BRACKET >> expression >> RIGHT_BRACKET ) >> FROM >> expression;
+const auto this_list_assign_items_def = this_ptr >> +( DOT >> variable ) >> +( LEFT_BRACKET >> expression >> RIGHT_BRACKET ) >> FROM >> expression;
+const auto data_list_assign_stmt_def = this_list_assign_items[MakeStmt<DataListAssignStmt>()] | data_list_assign_items[MakeStmt<DataListAssignStmt>()];
 
 const auto expression_stmt_items_def = expression;
 const auto expression_stmt_def = expression_stmt_items[MakeStmt<ExpressionStmt>()];
 
-const auto statement_def = data_assign_stmt | method_call | assign_stmt | function_call | print_stmt | expression_function | let_stmt | if_stmt | while_stmt | repeat_stmt | case_stmt | return_stmt | function | class_template | expression_stmt | comment;
+const auto statement_def = data_assign_stmt | method_call | assign_stmt | list_assign_stmt | function_call | print_stmt | expression_function | let_stmt | if_stmt | while_stmt | repeat_stmt | case_stmt | return_stmt | function | class_template | expression_stmt | comment;
 const auto block_def = *statement;
 
 BOOST_SPIRIT_DEFINE(number_str, base_number_str, boolean_str, string_str, value)
 BOOST_SPIRIT_DEFINE(plus, minus, times, divide, modulo, floor_divide, exponent,
     equal, not_equal, less, less_equal, greater_equal, greater,
     logical_and, logical_or, logical_not, bitwise_and, bitwise_or, bitwise_xor, bitwise_compl,
-    comma, semicolon, from, to)
+    comma, semicolon, question, bang, from, to)
 BOOST_SPIRIT_DEFINE(expression, logic_or, logic_and, logic_and_n,
     bit_or, bit_or_n, bit_xor, bit_xor_n, bit_and, bit_and_n,
     equality, equality_n, comparison, comparison_n,
     term, term_n, factor, factor_n, unary, unary_n, index, index_n, primary_n)
 BOOST_SPIRIT_DEFINE(identifier, variable, function_value_call, data_value_call, this_value_call,
     data_method_call, this_method_call, user_input, type_conversion_items, type_conversion, keywords,
+    list_items, list, list_index, data_list_index, this_list_index, list_assign_items, list_assign_stmt,
     comment_items, comment, print_items, print_stmt,
     let_items, let_stmt, assign_items, assign_stmt, if_items, if_stmt,
     when_items, while_items, while_stmt, repeat_items, repeat_stmt, case_items, case_stmt,
@@ -569,6 +625,7 @@ BOOST_SPIRIT_DEFINE(identifier, variable, function_value_call, data_value_call, 
     expression_function_items, expression_function,
     return_items, return_stmt, class_items, class_template, data_assign_items, data_assign_stmt,
     this_ptr, this_assign_items, this_call_items,
+    data_list_assign_items, this_list_assign_items, data_list_assign_stmt,
     method_call_items, method_call, expression_stmt_items, expression_stmt, statement, block)
 
 bool parseBlock(const std::string& block_str, StmtList& ast, std::ostream& error, std::string::const_iterator& iter, Constants *constants) {

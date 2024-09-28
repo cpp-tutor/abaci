@@ -9,10 +9,12 @@ using llvm::AllocaInst;
 using llvm::PointerType;
 using llvm::ArrayType;
 using llvm::Value;
+using llvm::BasicBlock;
 using LLVMType = llvm::Type*;
 
 void destroyValue(JIT& jit, Value *value, const Type& type) {
     switch (typeToScalar(removeConstFromType(type))) {
+        case AbaciValue::None:
         case AbaciValue::Boolean:
         case AbaciValue::Integer:
         case AbaciValue::Floating:
@@ -25,6 +27,7 @@ void destroyValue(JIT& jit, Value *value, const Type& type) {
             break;
         case AbaciValue::Instance: {
             auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
+            Assert(instanceType != nullptr);
             ArrayType *array = ArrayType::get(jit.getBuilder().getInt64Ty(), instanceType->variableTypes.size());
             Value *arrayPtr = jit.getBuilder().CreateLoad(PointerType::get(array, 0), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.Instance"), value, 2));
             for (std::size_t index = 0; index != instanceType->variableTypes.size(); ++index) {
@@ -32,6 +35,31 @@ void destroyValue(JIT& jit, Value *value, const Type& type) {
                 destroyValue(jit, jit.getBuilder().CreateLoad(typeToLLVMType(jit, type), variable), instanceType->variableTypes.at(index));
             }
             jit.getBuilder().CreateCall(jit.getModule().getFunction("destroyInstance"), { value });
+            break;
+        }
+        case AbaciValue::List: {
+            auto listType = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+            Assert(listType != nullptr);
+            Value *listSize = jit.getBuilder().CreateLoad(jit.getBuilder().getInt64Ty(), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.List"), value, 0));
+            ArrayType *array = ArrayType::get(jit.getBuilder().getInt64Ty(), 0);
+            Value *listElements = jit.getBuilder().CreateLoad(PointerType::get(array, 0), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.List"), value, 1));
+            AllocaInst *index = jit.getBuilder().CreateAlloca(jit.getBuilder().getInt64Ty(), nullptr);
+            jit.getBuilder().CreateStore(jit.getBuilder().getInt64(0), index);
+            BasicBlock *preBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+            BasicBlock *loopBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+            BasicBlock *postBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+            jit.getBuilder().CreateBr(preBlock);
+            jit.getBuilder().SetInsertPoint(preBlock);
+            Value *condition = jit.getBuilder().CreateICmpNE(jit.getBuilder().CreateLoad(jit.getBuilder().getInt64Ty(), index), listSize);
+            jit.getBuilder().CreateCondBr(condition, loopBlock, postBlock);
+            jit.getBuilder().SetInsertPoint(loopBlock);
+            Value *indexValue = jit.getBuilder().CreateLoad(jit.getBuilder().getInt64Ty(), index);
+            Value *element = jit.getBuilder().CreateGEP(array, listElements, { jit.getBuilder().getInt32(0), indexValue });
+            destroyValue(jit, jit.getBuilder().CreateLoad(typeToLLVMType(jit, type), element), listType->elementType);
+            jit.getBuilder().CreateStore(jit.getBuilder().CreateAdd(indexValue, jit.getBuilder().getInt64(1)), index);
+            jit.getBuilder().CreateBr(preBlock);
+            jit.getBuilder().SetInsertPoint(postBlock);
+            jit.getBuilder().CreateCall(jit.getModule().getFunction("destroyList"), { value });
             break;
         }
         default:
@@ -49,7 +77,7 @@ Value *getContextValue(JIT& jit) {
 LLVMType typeToLLVMType(JIT& jit, const Type& type) {
     switch (typeToScalar(removeConstFromType(type))) {
         case AbaciValue::None:
-            return jit.getBuilder().getVoidTy();
+            return PointerType::get(jit.getNamedType("struct.Instance"), 0);
         case AbaciValue::Boolean:
             return jit.getBuilder().getInt1Ty();
         case AbaciValue::Integer:
@@ -62,6 +90,8 @@ LLVMType typeToLLVMType(JIT& jit, const Type& type) {
             return PointerType::get(jit.getNamedType("struct.String"), 0);
         case AbaciValue::Instance:
             return PointerType::get(jit.getNamedType("struct.Instance"), 0);
+        case AbaciValue::List:
+            return PointerType::get(jit.getNamedType("struct.List"), 0);
         default:
             UnexpectedError0(BadType);
     }
@@ -69,6 +99,7 @@ LLVMType typeToLLVMType(JIT& jit, const Type& type) {
 
 Value *cloneValue(JIT& jit, Value *value, const Type& type) {
     switch (typeToScalar(removeConstFromType(type))) {
+        case AbaciValue::None:
         case AbaciValue::Boolean:
         case AbaciValue::Integer:
         case AbaciValue::Floating:
@@ -80,6 +111,7 @@ Value *cloneValue(JIT& jit, Value *value, const Type& type) {
         case AbaciValue::Instance: {
             auto instance = jit.getBuilder().CreateCall(jit.getModule().getFunction("cloneInstance"), { value });
             auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
+            Assert(instanceType != nullptr);
             ArrayType *array = ArrayType::get(jit.getBuilder().getInt64Ty(), instanceType->variableTypes.size());
             Value *readArrayPtr = jit.getBuilder().CreateLoad(PointerType::get(array, 0), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.Instance"), value, 2));
             Value *writeArrayPtr = jit.getBuilder().CreateLoad(PointerType::get(array, 0), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.Instance"), instance, 2));
@@ -90,6 +122,34 @@ Value *cloneValue(JIT& jit, Value *value, const Type& type) {
                 jit.getBuilder().CreateStore(jit.getBuilder().CreateBitCast(variable, jit.getBuilder().getInt64Ty()), variableWrite);
             }
             return instance;
+        }
+        case AbaciValue::List: {
+            auto listType = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+            Assert(listType != nullptr);
+            auto list = jit.getBuilder().CreateCall(jit.getModule().getFunction("cloneList"), { value });
+            Value *listSize = jit.getBuilder().CreateLoad(jit.getBuilder().getInt64Ty(), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.List"), value, 0));
+            ArrayType *array = ArrayType::get(jit.getBuilder().getInt64Ty(), 0);
+            Value *listRead = jit.getBuilder().CreateLoad(PointerType::get(array, 0), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.List"), value, 1));
+            Value *listWrite = jit.getBuilder().CreateLoad(PointerType::get(array, 0), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.List"), list, 1));
+            AllocaInst *index = jit.getBuilder().CreateAlloca(jit.getBuilder().getInt64Ty(), nullptr);
+            jit.getBuilder().CreateStore(jit.getBuilder().getInt64(0), index);
+            BasicBlock *preBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+            BasicBlock *loopBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+            BasicBlock *postBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
+            jit.getBuilder().CreateBr(preBlock);
+            jit.getBuilder().SetInsertPoint(preBlock);
+            Value *condition = jit.getBuilder().CreateICmpNE(jit.getBuilder().CreateLoad(jit.getBuilder().getInt64Ty(), index), listSize);
+            jit.getBuilder().CreateCondBr(condition, loopBlock, postBlock);
+            jit.getBuilder().SetInsertPoint(loopBlock);
+            Value *indexValue = jit.getBuilder().CreateLoad(jit.getBuilder().getInt64Ty(), index);
+            Value *elementRead = jit.getBuilder().CreateGEP(array, listRead, { jit.getBuilder().getInt32(0), indexValue });
+            Value *element = cloneValue(jit, jit.getBuilder().CreateLoad(typeToLLVMType(jit, listType->elementType), elementRead), listType->elementType);
+            Value *elementWrite = jit.getBuilder().CreateGEP(array, listWrite, { jit.getBuilder().getInt32(0), indexValue });
+            jit.getBuilder().CreateStore(jit.getBuilder().CreateBitCast(element, jit.getBuilder().getInt64Ty()), elementWrite);
+            jit.getBuilder().CreateStore(jit.getBuilder().CreateAdd(indexValue, jit.getBuilder().getInt64(1)), index);
+            jit.getBuilder().CreateBr(preBlock);
+            jit.getBuilder().SetInsertPoint(postBlock);
+            return list;
         }
         default:
             UnexpectedError0(BadType);

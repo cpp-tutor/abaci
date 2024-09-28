@@ -50,7 +50,7 @@ public:
     }
     void operator()(const ExprNode& node) const;
     Value *toBoolean(TypedValue& operand) const;
-    AbaciValue::Type promote(TypedValue& operand1, TypedValue& operand2) const;
+    Type promote(TypedValue& operand1, TypedValue& operand2) const;
 private:
     template<ExprNode::Type N>
     void codeGen(const ExprNode& node) const;

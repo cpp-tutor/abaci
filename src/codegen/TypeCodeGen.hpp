@@ -50,7 +50,7 @@ public:
         return stack.front();
     }
     void operator()(const ExprNode& expr) const;
-    AbaciValue::Type promote(const Type& operand1, const Type& operand2) const;
+    Type promote(const Type& operand1, const Type& operand2) const;
 };
 
 class TypeCodeGen {

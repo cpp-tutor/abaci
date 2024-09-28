@@ -4,15 +4,16 @@
 #define MESSAGE(MSG, STR) inline const char *MSG = reinterpret_cast<const char*>(u8##STR)
 
 MESSAGE(InstanceOf, "<Instance of {}>");
+MESSAGE(ListOf, "<List of size {}>");
 MESSAGE(UnknownType, "Unknown type ({}).");
 MESSAGE(BadOperator, "Unknown operator.");
 MESSAGE(BadConvType, "Bad type for conversion to this type.");
 MESSAGE(NeedType, "Must be \'{}\' type.");
 MESSAGE(BadConvTarget, "Bad target conversion type ({}).");
 
-MESSAGE(VarExists, "Variable \'{}\' already exists.");
-MESSAGE(VarNotExist, "Variable \'{}\' does not exist.");
-MESSAGE(VarType, "Existing variable \'{}\' has different type.");
+MESSAGE(VariableExists, "Variable \'{}\' already exists.");
+MESSAGE(VariableNotExist, "Variable \'{}\' does not exist.");
+MESSAGE(VariableType, "Existing variable \'{}\' has different type.");
 MESSAGE(BadNumericConv, "Bad numeric conversion when generating mangled name.");
 MESSAGE(BadChar, "Bad character in function name.");
 MESSAGE(BadType, "Bad type.");
@@ -60,9 +61,9 @@ MESSAGE(InitialPrompt, "Abaci version {}\nEnter code, or \"{}\" to end:\n> ");
 MESSAGE(InputPrompt, "> ");
 MESSAGE(ContinuationPrompt, ". ");
 MESSAGE(SyntaxError, "Unrecognized input.");
-MESSAGE(Version, "0.0.4 (2024-Sep-21)");
+MESSAGE(Version, "0.0.5 (2024-Sep-28)");
 
-MESSAGE(BadVarIndex, "Bad index of variable.");
+MESSAGE(BadVariableIndex, "Bad index of variable.");
 MESSAGE(BadTemp, "Bad temporary.");
 MESSAGE(NotImpl, "Not yet implemented.");
 MESSAGE(CompilerInconsistency, "Compiler inconsistency detected: {}");
@@ -71,5 +72,14 @@ MESSAGE(SourceFile, "\nSource filename: {}");
 MESSAGE(LineNumber, ", Line number: {}");
 MESSAGE(NotRefThis, "Variable \'this\' cannot be used in this way.");
 MESSAGE(ErrorInLine, "Error in line");
+
+MESSAGE(EmptyListNeedsType, "An empty list must be given an element type.");
+MESSAGE(ListTypeMismatch, "Mismatching types for list elements (\'{}\' and \'{}\').");
+MESSAGE(ExpectedHere, "Expecting a \'{}\'.");
+MESSAGE(VariableNotList, "Variable \'{}\' is not a list.");
+MESSAGE(IndexNotInt, "List index must be of integer type.");
+MESSAGE(TooManyIndexes, "Too many list subscripts for list \'{}\'.");
+MESSAGE(ListAssignMismatch, "Mismatching types for list element assignment (\'{}\' and \'{}\').");
+MESSAGE(IncompatibleTypes, "Types \'{}\' and \'{}\' are incompatible.");
 
 #endif

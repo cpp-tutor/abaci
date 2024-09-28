@@ -18,7 +18,7 @@ using abaci::utility::AbaciValue;
 using abaci::utility::Constants;
 using abaci::utility::Operator;
 
-class ExprNode;
+struct ExprNode;
 
 using ExprList = std::vector<ExprNode>;
 
@@ -52,20 +52,43 @@ struct UserInput : position_tagged {
     std::string dummy;
 };
 
-struct TypeConv : position_tagged {
+struct TypeConv {
     AbaciValue::Type toType;
     std::shared_ptr<ExprNode> expression;
 };
 
-struct ExprNode : position_tagged {
-    enum Association { Unset, Left, Right, Unary, Boolean };
-    enum Type { UnsetNode, ValueNode, OperatorNode, ListNode, VariableNode, FunctionNode, DataMemberNode, MethodNode, InputNode, TypeConvNode };
-    std::variant<std::monostate,std::size_t,Operator,std::pair<Association,ExprList>,Variable,FunctionValueCall,DataMember,MethodValueCall,UserInput,TypeConv> data;
+struct List {
+    std::shared_ptr<ExprNode> firstElement;
+    std::shared_ptr<ExprList> otherElements;
+    std::string elementType;
 };
 
-struct TypeConvItems {
+struct ListIndex : position_tagged {
+    Variable name;
+    ExprList indexes;
+};
+
+struct DataListIndex : position_tagged {
+    Variable name;
+    std::vector<Variable> memberList;
+    ExprList indexes;
+};
+
+struct ExprNode : position_tagged {
+    enum Association { Unset, Left, Right, Unary, Boolean };
+    enum Type { UnsetNode, ValueNode, OperatorNode, ListNode, VariableNode, FunctionNode, DataMemberNode, MethodNode, InputNode, TypeConvNode, ListItemsNode, ListIndexNode, DataIndexNode };
+    std::variant<std::monostate,std::size_t,Operator,std::pair<Association,ExprList>,Variable,FunctionValueCall,DataMember,MethodValueCall,UserInput,TypeConv,List,ListIndex,DataListIndex> data;
+};
+
+struct TypeConvItems : position_tagged {
     std::string toType;
     ExprNode expression;
+};
+
+struct ListItems : position_tagged {
+    ExprNode firstElement;
+    ExprList otherElements;
+    std::string elementType;
 };
 
 } // namespace abaci::ast
@@ -77,5 +100,8 @@ BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataMember, name, memberList)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodValueCall, name, memberList, method, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::UserInput, dummy)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::TypeConvItems, toType, expression)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListItems, firstElement, otherElements, elementType)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListIndex, name, indexes)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataListIndex, name, memberList, indexes)
 
 #endif
