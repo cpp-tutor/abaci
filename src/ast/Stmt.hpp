@@ -178,6 +178,6 @@ BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodCall, name, memberList, method, args
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExpressionStmt, expression)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListInitStmt, name, assign, type, firstElement, otherElements)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListAssignStmt, name, indexes, value)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataListAssignStmt, memberList, name, indexes, value)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataListAssignStmt, name, memberList, indexes, value)
 
 #endif
