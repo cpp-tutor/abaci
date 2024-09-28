@@ -207,6 +207,8 @@ f.i(2.5)
 
 * **0.0.4** (2024-Sep-21): Fourth release with stability and error message improvements
 
+* **0.0.5** (2024-Sep-28): Fifth release with list support and many other improvements
+
 ## License
 
 All source code and documentation released under the MIT License, &copy;2024 Richard Spencer
