@@ -45,8 +45,8 @@ std::string processError(std::string&& errorString) {
     if (auto noNewline = errorString.find("\n"); noNewline != std::string::npos) {
         errorString.replace(noNewline, 1, " ");
     }
-    if (!errorString.ends_with("\n")) {
-        errorString.append("\n");
+    if (errorString.ends_with('\n')) {
+        errorString.pop_back();
     }
     return errorString;
 }
@@ -87,7 +87,7 @@ int main(const int argc, const char **argv) {
 #else
                     fmt::print
 #endif
-                    (std::cerr, "{}", processError(error.str()));
+                    (std::cerr, "{}\n", !error.str().empty() ? processError(error.str()) : SyntaxError);
                     return 1;
                 }
             }
@@ -160,7 +160,7 @@ int main(const int argc, const char **argv) {
 #else
                 fmt::print
 #endif
-                (std::cerr, "{}", processError(error.str()));
+                (std::cerr, "{}\n", processError(error.str()));
                 start = input.cend();
             }
         }
@@ -173,7 +173,7 @@ int main(const int argc, const char **argv) {
 #else
             fmt::print
 #endif
-            (std::cerr, "{}", processError(error.str()));
+            (std::cerr, "{}\n", !error.str().empty() ? processError(error.str()) : SyntaxError);
             start = input.cend();
         }
 #ifdef ABACI_USE_STD_FORMAT
