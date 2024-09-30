@@ -67,12 +67,12 @@ int main(const int argc, const char **argv) {
                 std::ostringstream error;
                 if (parseBlock(inputText, ast, error, start, &constants)) {
                     TypeCodeGen typeGen(&context, &functions);
-                    for (const auto& stmt : ast) {
+                    for (const auto& stmt : ast.statements) {
                         typeGen(stmt);
                     }
                     JIT jit("Abaci", "program", &context, &functions);
                     StmtCodeGen codeGen(jit, &temps);
-                    for (const auto& stmt : ast) {
+                    for (const auto& stmt : ast.statements) {
                         codeGen(stmt);
                         temps.destroyTemporaries(jit);
                         temps.clear();

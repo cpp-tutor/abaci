@@ -48,17 +48,17 @@ using abaci::utility::storeMutableValue;
 using abaci::utility::storeGlobalValue;
 
 void StmtCodeGen::operator()(const StmtList& stmts, BasicBlock *exitBlock) const {
-    if (!stmts.empty()) {
+    if (!stmts.statements.empty()) {
         locals = const_cast<LocalSymbols*>(static_cast<const LocalSymbols*>(&stmts));
         locals->makeVariables(jit);
         Temporaries *enclosingTemps = temps;
         temps = const_cast<Temporaries*>(static_cast<const Temporaries*>(&stmts));
         Assert(temps->size() == 0);
         temps->setEnclosing(enclosingTemps);
-        for (const auto& stmt : stmts) {
+        for (const auto& stmt : stmts.statements) {
             (*this)(stmt);
         }
-        if (!dynamic_cast<const ReturnStmt*>(stmts.back().get())) {
+        if (!dynamic_cast<const ReturnStmt*>(stmts.statements.back().get())) {
             temps->destroyTemporaries(jit);
             locals->destroyVariables(jit);
             if (exitBlock) {
@@ -305,7 +305,7 @@ void StmtCodeGen::codeGen(const RepeatStmt& repeatStmt) const {
 
 template<>
 void StmtCodeGen::codeGen(const CaseStmt& caseStmt) const {
-    std::vector<BasicBlock*> caseBlocks(caseStmt.matches.size() * 2 + 1 + !caseStmt.unmatched.empty());
+    std::vector<BasicBlock*> caseBlocks(caseStmt.matches.size() * 2 + 1 + !caseStmt.unmatched.statements.empty());
     for (auto& block : caseBlocks) {
         block = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
     }
@@ -347,7 +347,7 @@ void StmtCodeGen::codeGen(const CaseStmt& caseStmt) const {
         (*this)(when.block, caseBlocks.back());
         ++blockNumber;
     }
-    if (!caseStmt.unmatched.empty()) {
+    if (!caseStmt.unmatched.statements.empty()) {
         builder.SetInsertPoint(caseBlocks.at(caseBlocks.size() - 2));
         (*this)(caseStmt.unmatched, caseBlocks.back());
     }

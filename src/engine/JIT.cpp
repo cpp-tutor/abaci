@@ -143,7 +143,7 @@ void JIT::initialize() {
         }
         StmtCodeGen stmt(*this, nullptr, &parameters, exitBlock);
         stmt(cacheFunction.body);
-        if (!dynamic_cast<const ReturnStmt*>(cacheFunction.body.back().get())) {
+        if (!dynamic_cast<const ReturnStmt*>(cacheFunction.body.statements.back().get())) {
             builder.CreateBr(exitBlock);
         }
         exitBlock->insertInto(currentFunction);
@@ -152,7 +152,7 @@ void JIT::initialize() {
             builder.CreateRetVoid();
         }
         else {
-            builder.CreateRet(loadMutableValue(*this, parameters.getValue(parameters.getIndex(RETURN_V).second), instantiation.returnType));
+            builder.CreateRet(loadMutableValue(*this, parameters.getValue(parameters.getIndex(RETURN_V, true).second), instantiation.returnType));
         }
         parameters.clear();
     }

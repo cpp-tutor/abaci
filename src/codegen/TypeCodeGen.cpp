@@ -717,13 +717,13 @@ Type TypeEvalGen::promote(const Type& typeOperand1, const Type& typeOperand2) co
 }
 
 void TypeCodeGen::operator()(const abaci::ast::StmtList& stmts) const {
-    if (!stmts.empty()) {
+    if (!stmts.statements.empty()) {
         LocalSymbols *enclosing = locals;
         locals = const_cast<LocalSymbols*>(static_cast<const LocalSymbols*>(&stmts));
         Assert(locals->size() == 0);
         locals->setEnclosing(enclosing);
-        for (const auto& stmt : stmts) {
-            if (dynamic_cast<const ReturnStmt*>(stmt.get()) && &stmt != &stmts.back()) {
+        for (const auto& stmt : stmts.statements) {
+            if (dynamic_cast<const ReturnStmt*>(stmt.get()) && &stmt != &stmts.statements.back()) {
                 LogicError0(ReturnAtEnd);
             }
             (*this)(stmt);
@@ -854,7 +854,7 @@ void TypeCodeGen::codeGen(const CaseStmt& caseStmt) const {
         expr(when.expression);
         (*this)(when.block);
     }
-    if (!caseStmt.unmatched.empty()) {
+    if (!caseStmt.unmatched.statements.empty()) {
         (*this)(caseStmt.unmatched);
     }
 }
@@ -903,7 +903,7 @@ void TypeCodeGen::codeGen(const ReturnStmt& returnStmt) const {
 template<>
 void TypeCodeGen::codeGen(const ExprFunction& expressionFunction) const {
     StmtList functionBody;
-    functionBody.emplace_back(new ReturnStmt{ expressionFunction.expression });
+    functionBody.statements.emplace_back(new ReturnStmt{ expressionFunction.expression });
     cache->addFunctionTemplate(expressionFunction.name, expressionFunction.parameters, functionBody);
 }
 
