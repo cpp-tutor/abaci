@@ -14,7 +14,14 @@ using namespace llvm;
 using abaci::ast::ExprNode;
 using abaci::ast::ExprList;
 using abaci::ast::Variable;
+using abaci::ast::FunctionValueCall;
+using abaci::ast::DataMember;
+using abaci::ast::MethodValueCall;
+using abaci::ast::UserInput;
+using abaci::ast::TypeConv;
 using abaci::ast::ListIndex;
+using abaci::ast::List;
+using abaci::ast::DataListIndex;
 using abaci::lib::makeString;
 using abaci::utility::AbaciValue;
 using abaci::utility::Operator;
@@ -24,6 +31,7 @@ using abaci::utility::GlobalSymbols;
 using abaci::utility::LocalSymbols;
 using abaci::utility::mangled;
 using abaci::utility::removeConstFromType;
+using abaci::utility::typeToScalar;
 using abaci::utility::TypeList;
 using abaci::utility::TypeInstance;
 using abaci::utility::TypeConversions;
@@ -34,8 +42,11 @@ using abaci::utility::getContextValue;
 using abaci::engine::Cache;
 
 template<>
-void ExprCodeGen::codeGen<ExprNode::ValueNode>(const ExprNode& node) const {
-    auto index = std::get<ExprNode::ValueNode>(node.data);
+void ExprCodeGen::codeGen([[maybe_unused]] const std::monostate& none) const {
+}
+
+template<>
+void ExprCodeGen::codeGen(const std::size_t& index) const {
     const auto& constantValue = constants.get(index);
     switch (typeToScalar(constantValue.second)) {
         case AbaciValue::None:
@@ -62,10 +73,14 @@ void ExprCodeGen::codeGen<ExprNode::ValueNode>(const ExprNode& node) const {
 }
 
 template<>
-void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
-    switch (std::get<ExprNode::ListNode>(node.data).first) {
+void ExprCodeGen::codeGen([[maybe_unused]] const Operator& op) const {
+}
+
+template<>
+void ExprCodeGen::codeGen(const std::pair<ExprNode::Association,ExprList>& listNode) const {
+    switch (listNode.first) {
         case ExprNode::Left: {
-            const auto& expr = std::get<ExprNode::ListNode>(node.data).second;
+            const auto& expr = listNode.second;
             (*this)(expr.front());
             auto result = pop();
             for (auto iter = ++expr.begin(); iter != expr.end();) {
@@ -242,7 +257,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
             break;
         }
         case ExprNode::Right: {
-            const auto& expr = std::get<ExprNode::ListNode>(node.data).second;
+            const auto& expr = listNode.second;
             (*this)(expr.back());
             auto result = pop();
             for (auto iter = ++expr.rbegin(); iter != expr.rend();) {
@@ -294,7 +309,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
             break;
         }
         case ExprNode::Unary: {
-            const auto& expr = std::get<ExprNode::ListNode>(node.data).second;
+            const auto& expr = listNode.second;
             (*this)(expr.back());
             auto result = pop();
             auto type = result.second;
@@ -458,7 +473,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
             break;
         }
         case ExprNode::Boolean: {
-            const auto& expr = std::get<ExprNode::ListNode>(node.data).second;
+            const auto& expr = listNode.second;
             (*this)(expr.front());
             auto result = pop();
             if (expr.size() == 1) {
@@ -617,8 +632,7 @@ void ExprCodeGen::codeGen<ExprNode::ListNode>(const ExprNode& node) const {
 }
 
 template<>
-void ExprCodeGen::codeGen<ExprNode::VariableNode>(const ExprNode& node) const {
-    const Variable& variable = std::get<ExprNode::VariableNode>(node.data);
+void ExprCodeGen::codeGen(const Variable& variable) const {
     if (locals) {
         auto [ variables, index ] = locals->getIndex(variable.name);
         if (index != LocalSymbols::noVariable) {
@@ -639,8 +653,7 @@ void ExprCodeGen::codeGen<ExprNode::VariableNode>(const ExprNode& node) const {
 }
 
 template<>
-void ExprCodeGen::codeGen<ExprNode::FunctionNode>(const ExprNode& node) const {
-    const auto& call = std::get<ExprNode::FunctionNode>(node.data);
+void ExprCodeGen::codeGen(const FunctionValueCall& call) const {
     switch (jit.getCache()->getCacheType(call.name)) {
         case Cache::CacheFunction: {
             std::vector<Value*> arguments;
@@ -695,8 +708,7 @@ void ExprCodeGen::codeGen<ExprNode::FunctionNode>(const ExprNode& node) const {
 }
 
 template<>
-void ExprCodeGen::codeGen<ExprNode::DataMemberNode>(const ExprNode& node) const {
-    const auto& data = std::get<ExprNode::DataMemberNode>(node.data);
+void ExprCodeGen::codeGen(const DataMember& data) const {
     const std::string& name = data.name.name;
     Type type;
     if (locals) {
@@ -747,8 +759,7 @@ void ExprCodeGen::codeGen<ExprNode::DataMemberNode>(const ExprNode& node) const 
 }
 
 template<>
-void ExprCodeGen::codeGen<ExprNode::MethodNode>(const ExprNode& node) const {
-    const auto& methodCall = std::get<ExprNode::MethodNode>(node.data);
+void ExprCodeGen::codeGen(const MethodValueCall& methodCall) const {
     const std::string& name = methodCall.name.name;
     Type type;
     Value *thisPtr = nullptr;
@@ -819,15 +830,14 @@ void ExprCodeGen::codeGen<ExprNode::MethodNode>(const ExprNode& node) const {
 }
 
 template<>
-void ExprCodeGen::codeGen<ExprNode::InputNode>([[maybe_unused]] const ExprNode& node) const {
+void ExprCodeGen::codeGen([[maybe_unused]] const UserInput& input) const {
     Value *userInput = builder.CreateCall(module.getFunction("userInput"), { getContextValue(jit) });
     temps->addTemporary({ userInput, AbaciValue::String });
     push({ userInput, AbaciValue::String });
 }
 
 template<>
-void ExprCodeGen::codeGen<ExprNode::TypeConvNode>(const ExprNode& node) const {
-    const auto& typeConversion = std::get<ExprNode::TypeConvNode>(node.data);
+void ExprCodeGen::codeGen(const TypeConv& typeConversion) const {
     ExprCodeGen expr(jit, locals, temps);
     expr(*(typeConversion.expression));
     auto result = expr.get();
@@ -847,8 +857,7 @@ void ExprCodeGen::codeGen<ExprNode::TypeConvNode>(const ExprNode& node) const {
 }
 
 template<>
-void ExprCodeGen::codeGen<ExprNode::ListItemsNode>(const ExprNode& node) const {
-    const auto& list = std::get<ExprNode::ListItemsNode>(node.data);
+void ExprCodeGen::codeGen(const List& list) const {
     Assert(!list.elementType.empty() || list.firstElement->data.index() != ExprNode::UnsetNode);
     Type elementType = AbaciValue::None;
     if (!list.elementType.empty()) {
@@ -905,8 +914,7 @@ void ExprCodeGen::codeGen<ExprNode::ListItemsNode>(const ExprNode& node) const {
 }
 
 template<>
-void ExprCodeGen::codeGen<ExprNode::ListIndexNode>(const ExprNode& node) const {
-    const ListIndex& listIndex = std::get<ExprNode::ListIndexNode>(node.data);
+void ExprCodeGen::codeGen(const ListIndex& listIndex) const {
     if (locals) {
         auto [ variables, index ] = locals->getIndex(listIndex.name.name);
         if (index != LocalSymbols::noVariable) {
@@ -985,8 +993,7 @@ void ExprCodeGen::codeGen<ExprNode::ListIndexNode>(const ExprNode& node) const {
 }
 
 template<>
-void ExprCodeGen::codeGen<ExprNode::DataIndexNode>(const ExprNode& node) const {
-    const auto& dataIndex = std::get<ExprNode::DataIndexNode>(node.data);
+void ExprCodeGen::codeGen(const DataListIndex& dataIndex) const {
     const std::string& name = dataIndex.name.name;
     Type type;
     if (locals) {
@@ -1094,43 +1101,9 @@ void ExprCodeGen::codeGen<ExprNode::DataIndexNode>(const ExprNode& node) const {
 }
 
 void ExprCodeGen::operator()(const ExprNode& node) const {
-    switch (node.data.index()) {
-        case ExprNode::ValueNode:
-            codeGen<ExprNode::ValueNode>(node);
-            break;
-        case ExprNode::ListNode:
-            codeGen<ExprNode::ListNode>(node);
-            break;
-        case ExprNode::VariableNode:
-            codeGen<ExprNode::VariableNode>(node);
-            break;
-        case ExprNode::FunctionNode:
-            codeGen<ExprNode::FunctionNode>(node);
-            break;
-        case ExprNode::DataMemberNode:
-            codeGen<ExprNode::DataMemberNode>(node);
-            break;
-        case ExprNode::MethodNode:
-            codeGen<ExprNode::MethodNode>(node);
-            break;
-        case ExprNode::InputNode:
-            codeGen<ExprNode::InputNode>(node);
-            break;
-        case ExprNode::TypeConvNode:
-            codeGen<ExprNode::TypeConvNode>(node);
-            break;
-        case ExprNode::ListItemsNode:
-            codeGen<ExprNode::ListItemsNode>(node);
-            break;
-        case ExprNode::ListIndexNode:
-            codeGen<ExprNode::ListIndexNode>(node);
-            break;
-        case ExprNode::DataIndexNode:
-            codeGen<ExprNode::DataIndexNode>(node);
-            break;
-        default:
-            UnexpectedError0(BadNode);
-    }
+    std::visit([this](const auto& nodeType){
+        this->codeGen(nodeType);
+    }, node.data);
 }
 
 Type ExprCodeGen::promote(TypedValue& operand1, TypedValue& operand2) const {

@@ -52,8 +52,8 @@ public:
     Value *toBoolean(TypedValue& operand) const;
     Type promote(TypedValue& operand1, TypedValue& operand2) const;
 private:
-    template<ExprNode::Type N>
-    void codeGen(const ExprNode& node) const;
+    template<typename T>
+    void codeGen(const T&) const;
 };
 
 } // namespace abaci::codegen
