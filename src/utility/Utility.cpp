@@ -32,7 +32,7 @@ void destroyValue(JIT& jit, Value *value, const Type& type) {
             Value *arrayPtr = jit.getBuilder().CreateLoad(PointerType::get(array, 0), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.Instance"), value, 2));
             for (std::size_t index = 0; index != instanceType->variableTypes.size(); ++index) {
                 Value *variable = jit.getBuilder().CreateGEP(array, arrayPtr, { jit.getBuilder().getInt32(0), jit.getBuilder().getInt32(index) });
-                destroyValue(jit, jit.getBuilder().CreateLoad(typeToLLVMType(jit, type), variable), instanceType->variableTypes.at(index));
+                destroyValue(jit, jit.getBuilder().CreateLoad(typeToLLVMType(jit, instanceType->variableTypes.at(index)), variable), instanceType->variableTypes.at(index));
             }
             jit.getBuilder().CreateCall(jit.getModule().getFunction("destroyInstance"), { value });
             break;
@@ -55,7 +55,7 @@ void destroyValue(JIT& jit, Value *value, const Type& type) {
             jit.getBuilder().SetInsertPoint(loopBlock);
             Value *indexValue = jit.getBuilder().CreateLoad(jit.getBuilder().getInt64Ty(), index);
             Value *element = jit.getBuilder().CreateGEP(array, listElements, { jit.getBuilder().getInt32(0), indexValue });
-            destroyValue(jit, jit.getBuilder().CreateLoad(typeToLLVMType(jit, type), element), listType->elementType);
+            destroyValue(jit, jit.getBuilder().CreateLoad(typeToLLVMType(jit, listType->elementType), element), listType->elementType);
             jit.getBuilder().CreateStore(jit.getBuilder().CreateAdd(indexValue, jit.getBuilder().getInt64(1)), index);
             jit.getBuilder().CreateBr(preBlock);
             jit.getBuilder().SetInsertPoint(postBlock);
@@ -117,7 +117,7 @@ Value *cloneValue(JIT& jit, Value *value, const Type& type) {
             Value *writeArrayPtr = jit.getBuilder().CreateLoad(PointerType::get(array, 0), jit.getBuilder().CreateStructGEP(jit.getNamedType("struct.Instance"), instance, 2));
             for (std::size_t index = 0; index != instanceType->variableTypes.size(); ++index) {
                 Value *variableRead = jit.getBuilder().CreateGEP(array, readArrayPtr, { jit.getBuilder().getInt32(0), jit.getBuilder().getInt32(index) });
-                Value *variable = cloneValue(jit, jit.getBuilder().CreateLoad(typeToLLVMType(jit, type), variableRead), instanceType->variableTypes.at(index));
+                Value *variable = cloneValue(jit, jit.getBuilder().CreateLoad(typeToLLVMType(jit, instanceType->variableTypes.at(index)), variableRead), instanceType->variableTypes.at(index));
                 Value *variableWrite = jit.getBuilder().CreateGEP(array, writeArrayPtr, { jit.getBuilder().getInt32(0), jit.getBuilder().getInt32(index) });
                 jit.getBuilder().CreateStore(jit.getBuilder().CreateBitCast(variable, jit.getBuilder().getInt64Ty()), variableWrite);
             }
