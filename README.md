@@ -48,7 +48,7 @@ To create the executable `abaci.exe` under Windows, using CMake and VS2022, firs
 This project is currently under heavy development and should be considered pre-alpha. Current plans for features to be added include:
 
 * Broken parsing for method calls to be investigated *(completed)*
-* Homogenous lists (possibly multi-dimensional)
+* Homogeneous lists *(completed)*
 * String indexing
 * Closures (major changes are likely needed)
 * Error reporting tidied up *(completed)* with more accurate location reporting *(investigated and considered not possible)* 
