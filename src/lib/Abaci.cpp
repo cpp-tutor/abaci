@@ -45,7 +45,7 @@ Instance *makeInstance(char8_t *className, std::size_t size) {
     return object;
 }
 
-List *makeList(size_t size) {
+List *makeList(std::size_t size) {
     auto *object = new List{};
     object->length = size;
     object->elements = new AbaciValue[size];
@@ -162,7 +162,7 @@ String *userInput(Context *ctx) {
     return makeString(reinterpret_cast<char8_t*>(str.data()), str.size());
 }
 
-void deleteElement(List *object, size_t element) {
+void deleteElement(List *object, std::size_t element) {
     --object->length;
     memmove(object->elements + element, object->elements + element + 1, (object->length - element) * sizeof(AbaciValue));
 }

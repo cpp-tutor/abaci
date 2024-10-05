@@ -190,7 +190,7 @@ bool operator==(const Type& lhs, const Type& rhs) {
                 return false;
             }
             else {
-                for (size_t index = 0; const auto& type : lhsPtr->variableTypes) {
+                for (std::size_t index = 0; const auto& type : lhsPtr->variableTypes) {
                     if (type != rhsPtr->variableTypes.at(index++)) {
                         return false;
                     }

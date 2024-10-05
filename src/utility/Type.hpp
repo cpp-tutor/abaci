@@ -30,7 +30,7 @@ struct Instance {
 };
 
 struct List {
-    size_t length;
+    std::size_t length;
     AbaciValue *elements;
 };
 

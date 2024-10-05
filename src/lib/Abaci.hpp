@@ -19,7 +19,7 @@ using abaci::utility::AbaciValue;
 Complex *makeComplex(double real, double imag);
 String *makeString(char8_t *str, std::size_t len);
 Instance *makeInstance(char8_t *className, std::size_t size);
-List *makeList(size_t size);
+List *makeList(std::size_t size);
 
 Complex *cloneComplex(Complex *existing);
 String *cloneString(String *existing);
@@ -34,7 +34,7 @@ void destroyList(List *object);
 bool compareString(String *str1, String *str2);
 String *concatString(String *str1, String *str2);
 Complex *opComplex(Operator op, Complex *operand1, Complex *operand2);
-void deleteElement(List *object, size_t element);
+void deleteElement(List *object, std::size_t element);
 
 String *userInput(Context *ctx);
 AbaciValue toType(int toType, AbaciValue value, int fromType);

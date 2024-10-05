@@ -865,13 +865,13 @@ void ExprCodeGen::codeGen(const List& list) const {
             elementType = iter->second;
         }
     }
-    size_t listSize = list.elements->size();
+    std::size_t listSize = list.elements->size();
     Value *listObject = builder.CreateCall(module.getFunction("makeList"), { builder.getInt64(listSize) });
     if (!list.elements->empty()) {
         ArrayType *array = ArrayType::get(builder.getInt64Ty(), list.elements->size());
         Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), listObject, 1));
         Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(0) });
-        for (size_t index = 1; const auto& element : *(list.elements)) {
+        for (std::size_t index = 0; const auto& element : *(list.elements)) {
             ExprCodeGen expr(jit, locals, temps);
             expr(element);
             auto result = expr.get();
@@ -887,7 +887,7 @@ void ExprCodeGen::codeGen(const List& list) const {
             else {
                 value = cloneValue(jit, result.first, result.second);
             }
-            ArrayType *array = ArrayType::get(builder.getInt64Ty(), list.elements->size() + 1);
+            ArrayType *array = ArrayType::get(builder.getInt64Ty(), list.elements->size());
             Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), listObject, 1));
             Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
             builder.CreateStore(value, valuePtr);
