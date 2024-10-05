@@ -51,6 +51,9 @@ public:
     }
     void operator()(const ExprNode& expr) const;
     Type promote(const Type& operand1, const Type& operand2) const;
+private:
+    template<typename T>
+    void codeGen(const T&) const;
 };
 
 class TypeCodeGen {

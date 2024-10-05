@@ -858,39 +858,26 @@ void ExprCodeGen::codeGen(const TypeConv& typeConversion) const {
 
 template<>
 void ExprCodeGen::codeGen(const List& list) const {
-    Assert(!list.elementType.empty() || list.firstElement->data.index() != ExprNode::UnsetNode);
+    Assert(!list.elementType.empty() || !list.elements->empty());
     Type elementType = AbaciValue::None;
     if (!list.elementType.empty()) {
         if (auto iter = TypeConversions.find(list.elementType); iter != TypeConversions.end()) {
             elementType = iter->second;
         }
     }
-    size_t listSize = (list.firstElement->data.index() != ExprNode::UnsetNode) + list.otherElements->size();
+    size_t listSize = list.elements->size();
     Value *listObject = builder.CreateCall(module.getFunction("makeList"), { builder.getInt64(listSize) });
-    if (list.firstElement->data.index() != ExprNode::UnsetNode) {
-        ExprCodeGen expr(jit, locals, temps);
-        expr(*(list.firstElement));
-        auto result = expr.get();
-        if (elementType == AbaciValue::None) {
-            elementType = result.second;
-        }
-        Assert(elementType == result.second);
-        Value *value;
-        if (temps->isTemporary(result.first)) {
-            temps->removeTemporary(result.first);
-            value = result.first;
-        }
-        else {
-            value = cloneValue(jit, result.first, result.second);
-        }
-        ArrayType *array = ArrayType::get(builder.getInt64Ty(), list.otherElements->size() + 1);
+    if (!list.elements->empty()) {
+        ArrayType *array = ArrayType::get(builder.getInt64Ty(), list.elements->size());
         Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), listObject, 1));
         Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(0) });
-        builder.CreateStore(value, valuePtr);
-        for (size_t index = 1; const auto& element : *(list.otherElements)) {
+        for (size_t index = 1; const auto& element : *(list.elements)) {
             ExprCodeGen expr(jit, locals, temps);
             expr(element);
             auto result = expr.get();
+            if (list.elementType.empty() && elementType == AbaciValue::None) {
+                elementType = result.second;
+            }
             Assert(elementType == result.second);
             Value *value;
             if (temps->isTemporary(result.first)) {
@@ -900,7 +887,7 @@ void ExprCodeGen::codeGen(const List& list) const {
             else {
                 value = cloneValue(jit, result.first, result.second);
             }
-            ArrayType *array = ArrayType::get(builder.getInt64Ty(), list.otherElements->size() + 1);
+            ArrayType *array = ArrayType::get(builder.getInt64Ty(), list.elements->size() + 1);
             Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), listObject, 1));
             Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
             builder.CreateStore(value, valuePtr);

@@ -58,8 +58,7 @@ struct TypeConv {
 };
 
 struct List {
-    std::shared_ptr<ExprNode> firstElement;
-    std::shared_ptr<ExprList> otherElements;
+    std::shared_ptr<ExprList> elements;
     std::string elementType;
 };
 
@@ -76,7 +75,6 @@ struct DataListIndex : position_tagged {
 
 struct ExprNode : position_tagged {
     enum Association { Unset, Left, Right, Unary, Boolean };
-    enum Type { UnsetNode, ValueNode, OperatorNode, ListNode, VariableNode, FunctionNode, DataMemberNode, MethodNode, InputNode, TypeConvNode, ListItemsNode, ListIndexNode, DataIndexNode };
     std::variant<std::monostate,std::size_t,Operator,std::pair<Association,ExprList>,Variable,FunctionValueCall,DataMember,MethodValueCall,UserInput,TypeConv,List,ListIndex,DataListIndex> data;
 };
 
@@ -86,8 +84,12 @@ struct TypeConvItems : position_tagged {
 };
 
 struct ListItems : position_tagged {
+#ifdef ABACI_USE_OLDER_BOOST
     ExprNode firstElement;
     ExprList otherElements;
+#else
+    ExprList elements;
+#endif
     std::string elementType;
 };
 
@@ -100,7 +102,11 @@ BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataMember, name, memberList)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodValueCall, name, memberList, method, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::UserInput, dummy)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::TypeConvItems, toType, expression)
+#ifdef ABACI_USE_OLDER_BOOST
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListItems, firstElement, otherElements, elementType)
+#else
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListItems, elements, elementType)
+#endif
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListIndex, name, indexes)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataListIndex, name, memberList, indexes)
 

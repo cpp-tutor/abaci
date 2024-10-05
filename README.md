@@ -33,13 +33,17 @@ set(CMAKE_CXX_STANDARD 20)
 
 To build against C++23's `<format>` and `<print>` headers (if available) instead of fmt, use `cmake .. -DABACI_USE_STD_FORMAT=1"`.
 
+To build with older Boost headers, in particular version 1.74, use `cmake .. -DABACI_USE_OLDER_BOOST=1` to avoid compilation errors for `parser/Parse.cpp`.
+
 Run `./abaci` without arguments to enter an interactive session, or with a source filename as the single argument to execute a script.
 
-To create the executable `abaci.exe` under Windows, using CMake and VS2022, first build LLVM from source. Then make a `build` directory at the same level as `src` and issue:
+To create the executable `abaci.exe` under Windows, using CMake and VS 2022, first build LLVM from source. Then make a `build` directory at the same level as `src` and issue:
 
 ```bash
-"C:\Program Files\CMake\bin\cmake.exe" .. -A x64 -Thost=x64 -DLLVM_DIR=C:\Users\<path_to>\llvm-19.1.0\lib\cmake\llvm -DBoost_INCLUDE_DIR=C:\Users\<path_to>\boost_1_85_0 -DABACI_USE_STD_FORMAT=1 -DCMAKE_CXX_FLAGS="/std:c++latest /EHsc"
+cmake.exe .. -A x64 -Thost=x64 -DLLVM_DIR=C:\Users\<path_to>\llvm-19.1.1\lib\cmake\llvm -DBoost_INCLUDE_DIR=C:\Users\<path_to>\boost_1_86_0 -DABACI_USE_STD_FORMAT=1
 ```
+
+Then load `Abaci.sln` into VS 2022 and select build type "Release" before building.
 
 (Replace `<path_to>` in each case with the correct path to LLVM and Boost.)
 
@@ -91,6 +95,11 @@ Array assignment (not yet implemented)
 
 ```
 let d = [ 2, 3, 5, 7, 11 ]
+print !d
+print d[3]
+d[3] <- nil
+print !d
+print d[3]
 ```
 
 Math operators
@@ -208,6 +217,8 @@ f.i(2.5)
 * **0.0.4** (2024-Sep-21): Fourth release with stability and error message improvements
 
 * **0.0.5** (2024-Sep-28): Fifth release with list support and many other improvements
+
+* **0.0.6** (2024-Oct-04): Sixth release with code improvements and support for different builds
 
 ## License
 

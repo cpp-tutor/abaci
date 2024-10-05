@@ -428,8 +428,15 @@ auto makeTypeConversion = [](auto& ctx){
 };
 
 auto makeList = [](auto& ctx){
+#ifdef ABACI_USE_OLDER_BOOST
     const ListItems& items = _attr(ctx);
-    _val(ctx) = List{ std::make_shared<ExprNode>(items.firstElement), std::make_shared<ExprList>(items.otherElements), items.elementType };
+    ExprList elements{ items.firstElement };
+    elements.insert(elements.end(), items.otherElements.begin(), items.otherElements.end());
+    _val(ctx) = List{ std::make_shared<ExprList>(std::move(elements)), items.elementType };
+#else
+    const ListItems& items = _attr(ctx);
+    _val(ctx) = List{ std::make_shared<ExprList>(items.elements), items.elementType };
+#endif
 };
 
 template<std::size_t Ty = ExprNode::Unset>
