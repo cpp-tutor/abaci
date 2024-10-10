@@ -5,10 +5,8 @@
 
 MESSAGE(InstanceOf, "<Instance of {}>");
 MESSAGE(ListOf, "<List of size {}>");
-MESSAGE(UnknownType, "Unknown type ({}).");
 MESSAGE(BadOperator, "Unknown operator.");
 MESSAGE(BadConvType, "Bad type for conversion to this type.");
-MESSAGE(NeedType, "Must be \'{}\' type.");
 MESSAGE(BadConvTarget, "Bad target conversion type ({}).");
 
 MESSAGE(VariableExists, "Variable \'{}\' already exists.");
@@ -39,9 +37,7 @@ MESSAGE(CallableNotExist, "No function or class called \'{}\'.");
 MESSAGE(BadObject, "Not an object.");
 MESSAGE(BadConvSource, "Bad source conversion type.");
 MESSAGE(BadAssociation, "Unknown association type.");
-MESSAGE(BadNode, "Bad node type.");
 MESSAGE(BadCoerceTypes, "Incompatible types.");
-MESSAGE(NoObject, "Operation is incompatible with object type.");
 MESSAGE(NoBoolean, "Cannot convert this type to Boolean.");
 
 MESSAGE(BadPrint, "Bad print entity.");
@@ -50,13 +46,11 @@ MESSAGE(DataType, "Data member already has different type.");
 MESSAGE(BadStmtNode, "Bad StmtNode type.");
 
 MESSAGE(ReturnAtEnd, "Return statement must be at end of block.");
-MESSAGE(ObjectType, "Existing object \'{}\' has different type(s).");
 MESSAGE(FuncTopLevel, "Functions must be defined at top-level.");
 MESSAGE(ReturnOnlyInFunction, "Return statement can only appear inside a function.");
 MESSAGE(FuncTypeSet, "Function return type already set to different type.");
 MESSAGE(NoExpression, "Expression not permitted in this context.");
 
-MESSAGE(BadParse, "Could not parse file.");
 MESSAGE(InitialPrompt, "Abaci version {}\nEnter code, or \"{}\" to end:\n> ");
 MESSAGE(InputPrompt, "> ");
 MESSAGE(ContinuationPrompt, ". ");
@@ -70,12 +64,10 @@ MESSAGE(CompilerInconsistency, "Compiler inconsistency detected: {}");
 MESSAGE(AssertionFailed, "Assertion failed ({})");
 MESSAGE(SourceFile, "\nSource filename: {}");
 MESSAGE(LineNumber, ", Line number: {}");
-MESSAGE(NotRefThis, "Variable \'this\' cannot be used in this way.");
 MESSAGE(ErrorInLine, "Error in line");
 
 MESSAGE(EmptyListNeedsType, "An empty list must be given an element type.");
 MESSAGE(ListTypeMismatch, "Mismatching types for list elements (\'{}\' and \'{}\').");
-MESSAGE(ExpectedHere, "Expecting a \'{}\'.");
 MESSAGE(VariableNotList, "Variable \'{}\' is not a list.");
 MESSAGE(IndexNotInt, "List index must be of integer type.");
 MESSAGE(TooManyIndexes, "Too many list subscripts for list \'{}\'.");
