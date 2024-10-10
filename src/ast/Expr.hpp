@@ -90,6 +90,9 @@ struct ListItems : position_tagged {
 #else
     ExprList elements;
 #endif
+};
+
+struct EmptyListItems : position_tagged {
     std::string elementType;
 };
 
@@ -103,10 +106,11 @@ BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodValueCall, name, memberList, method,
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::UserInput, dummy)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::TypeConvItems, toType, expression)
 #ifdef ABACI_USE_OLDER_BOOST
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListItems, firstElement, otherElements, elementType)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListItems, firstElement, otherElements)
 #else
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListItems, elements, elementType)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListItems, elements)
 #endif
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::EmptyListItems, elementType)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListIndex, name, indexes)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataListIndex, name, memberList, indexes)
 

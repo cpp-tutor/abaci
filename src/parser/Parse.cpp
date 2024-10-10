@@ -42,6 +42,7 @@ using abaci::ast::UserInput;
 using abaci::ast::TypeConvItems;
 using abaci::ast::TypeConv;
 using abaci::ast::ListItems;
+using abaci::ast::EmptyListItems;
 using abaci::ast::List;
 using abaci::ast::ListIndex;
 using abaci::ast::DataListIndex;
@@ -187,6 +188,7 @@ struct identifier_class;
 struct variable_class;
 struct this_ptr_class;
 struct list_items_class;
+struct empty_list_items_class;
 struct list_index_class;
 
 x3::rule<struct identifier_class, std::string> const identifier;
@@ -201,6 +203,7 @@ x3::rule<class user_input, UserInput> const user_input;
 x3::rule<class type_conversion_items, TypeConvItems> const type_conversion_items;
 x3::rule<class type_conversion, TypeConv> const type_conversion;
 x3::rule<struct list_items_class, ListItems> const list_items;
+x3::rule<struct empty_list_items_class, EmptyListItems> const empty_list_items;
 x3::rule<struct list_class, List> const list;
 x3::rule<struct list_index_class, ListIndex> const list_index;
 x3::rule<class data_list_index, DataListIndex> const data_list_index;
@@ -210,6 +213,7 @@ struct identitifer_class : x3::annotate_on_success {};
 struct variable_class : x3::annotate_on_success {};
 struct this_ptr_class : x3::annotate_on_success {};
 struct list_items_class : x3::annotate_on_success {};
+struct empty_list_items_class : x3::annotate_on_success {};
 struct list_index_class : x3::annotate_on_success {};
 
 struct comment_items_class;
@@ -432,11 +436,16 @@ auto makeList = [](auto& ctx){
     const ListItems& items = _attr(ctx);
     ExprList elements{ items.firstElement };
     elements.insert(elements.end(), items.otherElements.begin(), items.otherElements.end());
-    _val(ctx) = List{ std::make_shared<ExprList>(std::move(elements)), items.elementType };
+    _val(ctx) = List{ std::make_shared<ExprList>(std::move(elements)), "" };
 #else
     const ListItems& items = _attr(ctx);
-    _val(ctx) = List{ std::make_shared<ExprList>(items.elements), items.elementType };
+    _val(ctx) = List{ std::make_shared<ExprList>(items.elements), "" };
 #endif
+};
+
+auto makeEmptyList = [](auto& ctx){
+    const EmptyListItems& items = _attr(ctx);
+    _val(ctx) = List{ std::make_shared<ExprList>(), items.elementType };
 };
 
 template<std::size_t Ty = ExprNode::Unset>
@@ -522,9 +531,9 @@ const auto user_input_def = lit(INPUT);
 const auto type_conversion_items_def = ( string(INT) | string(FLOAT) | string(COMPLEX) | string(STR)
     | string(REAL) | string(IMAG) ) >> LEFT_PAREN >> expression >> RIGHT_PAREN;
 const auto type_conversion_def = type_conversion_items[makeTypeConversion];
-const auto list_items_def = LEFT_BRACKET >> -( expression >> *( COMMA >> expression ) ) >> RIGHT_BRACKET >>
-    -( string(BOOL) | string(INT) | string(FLOAT) | string(COMPLEX) | string(STR) );
-const auto list_def = list_items[makeList];
+const auto list_items_def = LEFT_BRACKET >> -( expression >> *( COMMA >> expression ) ) >> RIGHT_BRACKET;
+const auto empty_list_items_def = LEFT_BRACKET >> ( string(BOOL) | string(INT) | string(FLOAT) | string(COMPLEX) | string(STR) ) >> RIGHT_BRACKET;
+const auto list_def = list_items[makeList] | empty_list_items[makeEmptyList];
 const auto list_index_def = variable >> +(LEFT_BRACKET >> expression >> RIGHT_BRACKET);
 const auto data_list_index_def = variable >> +( DOT >> variable ) >> +( LEFT_BRACKET >> expression >> RIGHT_BRACKET );
 const auto this_list_index_def = this_ptr >> +( DOT >> variable ) >> +( LEFT_BRACKET >> expression >> RIGHT_BRACKET );
@@ -624,7 +633,7 @@ BOOST_SPIRIT_DEFINE(expression, logic_or, logic_and, logic_and_n,
     term, term_n, factor, factor_n, unary, unary_n, index, index_n, primary_n)
 BOOST_SPIRIT_DEFINE(identifier, variable, function_value_call, data_value_call, this_value_call,
     data_method_call, this_method_call, user_input, type_conversion_items, type_conversion, keywords,
-    list_items, list, list_index, data_list_index, this_list_index, list_assign_items, list_assign_stmt,
+    list_items, empty_list_items, list, list_index, data_list_index, this_list_index, list_assign_items, list_assign_stmt,
     comment_items, comment, print_items, print_stmt,
     let_items, let_stmt, assign_items, assign_stmt, if_items, if_stmt,
     when_items, while_items, while_stmt, repeat_items, repeat_stmt, case_items, case_stmt,
