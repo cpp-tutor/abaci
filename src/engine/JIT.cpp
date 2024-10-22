@@ -106,8 +106,8 @@ void JIT::initialize() {
     Function::Create(userInputType, Function::ExternalLinkage, "userInput", module.get());
     FunctionType *toTypeType = FunctionType::get(builder.getInt64Ty(), { builder.getInt32Ty(), builder.getInt64Ty(), builder.getInt32Ty() }, false);
     Function::Create(toTypeType, Function::ExternalLinkage, "toType", module.get());
-    FunctionType *powFuncType = FunctionType::get(builder.getDoubleTy(), { builder.getDoubleTy(), builder.getDoubleTy() }, false);
-    Function::Create(powFuncType, Function::ExternalLinkage, "pow", module.get());
+    FunctionType *powFunctionType = FunctionType::get(builder.getDoubleTy(), { builder.getDoubleTy(), builder.getDoubleTy() }, false);
+    Function::Create(powFunctionType, Function::ExternalLinkage, "pow", module.get());
     for (const auto& instantiation : cache->getInstantiations()) {
         std::string functionName{ mangled(instantiation.name, instantiation.parameterTypes) };
         std::vector<LLVMType> parameterTypes;

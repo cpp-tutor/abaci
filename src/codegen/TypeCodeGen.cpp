@@ -876,7 +876,7 @@ void TypeCodeGen::codeGen(const CaseStmt& caseStmt) const {
 template<>
 void TypeCodeGen::codeGen(const Function& function) const {
     if (functionType != NotAFunction) {
-        LogicError0(FuncTopLevel);
+        LogicError0(FunctionTopLevel);
     }
     cache->addFunctionTemplate(function.name, function.parameters, function.functionBody);
 }
@@ -908,7 +908,7 @@ void TypeCodeGen::codeGen(const ReturnStmt& returnStmt) const {
     auto result = expr.get();
     if (typeToScalar(result) != AbaciValue::None) {
         if (returnType.has_value() && returnType.value() != result) {
-            LogicError0(FuncTypeSet);
+            LogicError0(FunctionTypeSet);
         }
         returnType = result;
     }

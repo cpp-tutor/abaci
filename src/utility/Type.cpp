@@ -46,7 +46,7 @@ std::string typeToString(const Type& type) {
         else if (auto list = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
             return "[" + typeToString(list->elementType) + "]";
         }
-        UnexpectedError0(NotImpl);
+        UnexpectedError0(NotImplemented);
     }
     auto scalarType = typeToScalar(removeConstFromType(type));
     for (const auto& item : TypeConversions) {
@@ -84,7 +84,7 @@ Type addConstToType(const Type& type) {
             constType->isConstant = true;
             return constType;
         }
-        UnexpectedError0(NotImpl);
+        UnexpectedError0(NotImplemented);
     }
     else {
         UnexpectedError0(BadType);
@@ -106,7 +106,7 @@ Type removeConstFromType(const Type& type) {
             constType->isConstant = false;
             return constType;
         }
-        UnexpectedError0(NotImpl);
+        UnexpectedError0(NotImplemented);
     }
     else {
         UnexpectedError0(BadType);
@@ -167,7 +167,7 @@ std::string mangled(const std::string& name, const std::vector<Type>& types) {
                 }
             }
             else {
-                UnexpectedError0(NotImpl);
+                UnexpectedError0(NotImplemented);
             }
         }
     }

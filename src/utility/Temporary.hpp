@@ -40,7 +40,7 @@ public:
             temps.erase(iter);
         }
         else {
-            UnexpectedError0(BadTemp);
+            UnexpectedError0(BadTemporary);
         }
     }
     void destroyTemporaries(JIT &jit) {

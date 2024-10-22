@@ -46,9 +46,9 @@ MESSAGE(DataType, "Data member already has different type.");
 MESSAGE(BadStmtNode, "Bad StmtNode type.");
 
 MESSAGE(ReturnAtEnd, "Return statement must be at end of block.");
-MESSAGE(FuncTopLevel, "Functions must be defined at top-level.");
+MESSAGE(FunctionTopLevel, "Functions must be defined at top-level.");
 MESSAGE(ReturnOnlyInFunction, "Return statement can only appear inside a function.");
-MESSAGE(FuncTypeSet, "Function return type already set to different type.");
+MESSAGE(FunctionTypeSet, "Function return type already set to different type.");
 MESSAGE(NoExpression, "Expression not permitted in this context.");
 
 MESSAGE(InitialPrompt, "Abaci version {}\nEnter code, or \"{}\" to end:\n> ");
@@ -58,8 +58,8 @@ MESSAGE(SyntaxError, "Unrecognized input.");
 MESSAGE(Version, "0.0.6 (2024-Oct-04)");
 
 MESSAGE(BadVariableIndex, "Bad index of variable.");
-MESSAGE(BadTemp, "Bad temporary.");
-MESSAGE(NotImpl, "Not yet implemented.");
+MESSAGE(BadTemporary, "Bad temporary.");
+MESSAGE(NotImplemented, "Not yet implemented.");
 MESSAGE(CompilerInconsistency, "Compiler inconsistency detected: {}");
 MESSAGE(AssertionFailed, "Assertion failed ({})");
 MESSAGE(SourceFile, "\nSource filename: {}");
