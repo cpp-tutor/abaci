@@ -64,7 +64,7 @@ MESSAGE(CompilerInconsistency, "Compiler inconsistency detected: {}");
 MESSAGE(AssertionFailed, "Assertion failed ({})");
 MESSAGE(SourceFile, "\nSource filename: {}");
 MESSAGE(LineNumber, ", Line number: {}");
-MESSAGE(ErrorInLine, "Error in line");
+MESSAGE(ErrorAtLine, "Error at line {}: ");
 
 MESSAGE(EmptyListNeedsType, "An empty list must be given an element type.");
 MESSAGE(ListTypeMismatch, "Mismatching types for list elements (\'{}\' and \'{}\').");

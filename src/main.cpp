@@ -10,6 +10,7 @@
 #include "utility/Temporary.hpp"
 #include <fstream>
 #include <string>
+#include <regex>
 #include <iostream>
 
 #ifdef ABACI_USE_STD_FORMAT
@@ -40,10 +41,16 @@ std::string processError(std::string&& errorString) {
         errorString.resize(multiple);
     }
     if (errorString.starts_with(inLine)) {
-        errorString.replace(0, inLine.size(), ErrorInLine);
-    }
-    if (auto noNewline = errorString.find("\n"); noNewline != std::string::npos) {
-        errorString.replace(noNewline, 1, " ");
+        std::regex i10nLine{ R"(In line (\d+):\n)" };
+        std::smatch matches;
+        regex_search(errorString, matches, i10nLine);
+        std::string line = matches[1];
+#ifdef ABACI_USE_STD_FORMAT
+        std::string replaced = std::vformat(ErrorAtLine, std::make_format_args(line));
+#else
+        std::string replaced = fmt::format(fmt::runtime(ErrorAtLine), line);
+#endif
+        errorString.replace(0, matches[0].length(), replaced);
     }
     if (errorString.ends_with('\n')) {
         errorString.pop_back();
