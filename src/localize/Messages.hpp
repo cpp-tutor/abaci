@@ -55,7 +55,7 @@ MESSAGE(InitialPrompt, "Abaci version {}\nEnter code, or \"{}\" to end:\n> ");
 MESSAGE(InputPrompt, "> ");
 MESSAGE(ContinuationPrompt, ". ");
 MESSAGE(SyntaxError, "Unrecognized input.");
-MESSAGE(Version, "0.0.6 (2024-Oct-04)");
+MESSAGE(Version, "0.1.1 (2024-Oct-22)");
 
 MESSAGE(BadVariableIndex, "Bad index of variable.");
 MESSAGE(BadTemporary, "Bad temporary.");
