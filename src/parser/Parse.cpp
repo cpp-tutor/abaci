@@ -571,7 +571,7 @@ const auto keywords_def = lit(AND) | CASE | CLASS | COMPLEX | ELSE | ENDCASE | E
 
 const auto comment_items_def = lexeme[*( char_ - '\n' )];
 const auto comment_def = REM >> comment_items[MakeStmt<CommentStmt>()];
-const auto print_items_def = expression >> -( +comma | semicolon );
+const auto print_items_def = -( expression >> -( ( comma | semicolon ) >> *( expression >> ( comma | semicolon ) ) ) );
 const auto print_stmt_def = PRINT >> print_items[MakeStmt<PrintStmt>()];
 const auto let_items_def = variable >> (equal | from) >> expression;
 const auto let_stmt_def = LET >> let_items[MakeStmt<InitStmt>()];
@@ -586,7 +586,7 @@ const auto while_stmt_def = WHILE > while_items[MakeStmt<WhileStmt>()] > ENDWHIL
 const auto repeat_items_def = block > UNTIL > expression;
 const auto repeat_stmt_def = REPEAT > repeat_items[MakeStmt<RepeatStmt>()];
 
-const auto when_items_def = WHEN > expression > block;
+const auto when_items_def = WHEN > expression >> *( COMMA > expression ) > block;
 const auto case_items_def = expression > *when_items > -( ELSE > block );
 const auto case_stmt_def = CASE > case_items[MakeStmt<CaseStmt>()] > ENDCASE;
 

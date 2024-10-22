@@ -47,7 +47,8 @@ using PrintList = std::vector<std::variant<ExprNode,Operator>>;
 
 struct PrintStmt : StmtData {
     ExprNode expression;
-    PrintList format;
+    Operator separator;
+    ExprList format;
 };
 
 struct InitStmt : StmtData {
@@ -79,6 +80,7 @@ struct RepeatStmt : StmtData {
 
 struct WhenStmt {
     ExprNode expression;
+    std::vector<ExprNode> expressions;
     StmtList block;
 };
 
@@ -162,13 +164,13 @@ struct DataListAssignStmt : StmtData {
 } // namespace abaci::ast
 
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::CommentStmt, commentString)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::PrintStmt, expression, format)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::PrintStmt, expression, separator, format)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::InitStmt, name, assign, value)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::AssignStmt, name, value)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::IfStmt, condition, trueBlock, falseBlock)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::WhileStmt, condition, loopBlock)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::RepeatStmt, loopBlock, condition)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::WhenStmt, expression, block)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::WhenStmt, expression, expressions, block)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::CaseStmt, caseValue, matches, unmatched)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Function, name, parameters, functionBody)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::FunctionCall, name, args)

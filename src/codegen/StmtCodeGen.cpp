@@ -84,7 +84,17 @@ void StmtCodeGen::codeGen([[maybe_unused]] const CommentStmt& comment) const {
 template<>
 void StmtCodeGen::codeGen(const PrintStmt& print) const {
     PrintList printData{ print.expression };
-    printData.insert(printData.end(), print.format.begin(), print.format.end());
+    if (print.separator != Operator::None) {
+        printData.push_back(print.separator);
+    }
+    for (const auto& format : print.format) {
+        if (std::holds_alternative<Operator>(format.data)) {
+            printData.push_back(std::get<Operator>(format.data));
+        }
+        else {
+            printData.push_back(format);
+        }
+    }
     Value *context = getContextValue(jit);
     for (auto field : printData) {
         switch (field.index()) {
@@ -305,7 +315,16 @@ void StmtCodeGen::codeGen(const RepeatStmt& repeatStmt) const {
 
 template<>
 void StmtCodeGen::codeGen(const CaseStmt& caseStmt) const {
-    std::vector<BasicBlock*> caseBlocks(caseStmt.matches.size() * 2 + 1 + !caseStmt.unmatched.statements.empty());
+    std::vector<std::pair<const ExprNode*,const StmtList*>> matches;
+    for (const auto& match : caseStmt.matches) {
+#ifdef ABACI_USE_OLDER_BOOST
+        matches.emplace_back(&match.expression, &match.block);
+#endif
+        for (const auto& expression : match.expressions) {
+            matches.emplace_back(&expression, &match.block);
+        }
+    }
+    std::vector<BasicBlock*> caseBlocks(matches.size() * 2 + 1 + !caseStmt.unmatched.statements.empty());
     for (auto& block : caseBlocks) {
         block = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
     }
@@ -313,11 +332,11 @@ void StmtCodeGen::codeGen(const CaseStmt& caseStmt) const {
     expr(caseStmt.caseValue);
     auto result = expr.get();
     builder.CreateBr(caseBlocks.front());
-    for (std::size_t blockNumber = 0; const auto& when : caseStmt.matches) {
+    for (std::size_t blockNumber = 0; const auto& when : matches) {
         builder.SetInsertPoint(caseBlocks.at(blockNumber * 2));
         auto matchResult = result;
         ExprCodeGen expr(jit, locals, temps);
-        expr(when.expression);
+        expr(*(when.first));
         auto whenResult = expr.get();
         Value *isMatch;
         switch (typeToScalar(expr.promote(whenResult, matchResult))) {
@@ -344,7 +363,7 @@ void StmtCodeGen::codeGen(const CaseStmt& caseStmt) const {
         }
         builder.CreateCondBr(isMatch, caseBlocks.at(blockNumber * 2 + 1), caseBlocks.at(blockNumber * 2 + 2));
         builder.SetInsertPoint(caseBlocks.at(blockNumber * 2 + 1));
-        (*this)(when.block, caseBlocks.back());
+        (*this)(*(when.second), caseBlocks.back());
         ++blockNumber;
     }
     if (!caseStmt.unmatched.statements.empty()) {

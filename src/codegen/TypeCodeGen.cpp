@@ -756,7 +756,17 @@ void TypeCodeGen::codeGen([[maybe_unused]] const CommentStmt& comment) const {
 template<>
 void TypeCodeGen::codeGen(const PrintStmt& print) const {
     PrintList printData{ print.expression };
-    printData.insert(printData.end(), print.format.begin(), print.format.end());
+    if (print.separator != Operator::None) {
+        printData.push_back(print.separator);
+    }
+    for (const auto& format : print.format) {
+        if (std::holds_alternative<Operator>(format.data)) {
+            printData.push_back(std::get<Operator>(format.data));
+        }
+        else {
+            printData.push_back(format);
+        }
+    }
     for (auto field : printData) {
         switch (field.index()) {
             case 0: {
@@ -865,7 +875,12 @@ void TypeCodeGen::codeGen(const CaseStmt& caseStmt) const {
     }
     for (const auto& when : caseStmt.matches) {
         TypeEvalGen expr(context, cache, locals);
+#ifdef ABACI_USE_OLDER_BOOST
         expr(when.expression);
+#endif
+        for (const auto& expression : when.expressions) {
+            expr(expression);
+        }
         (*this)(when.block);
     }
     if (!caseStmt.unmatched.statements.empty()) {
