@@ -84,12 +84,8 @@ struct TypeConvItems : position_tagged {
 };
 
 struct ListItems : position_tagged {
-#ifdef ABACI_USE_OLDER_BOOST
     ExprNode firstElement;
     ExprList otherElements;
-#else
-    ExprList elements;
-#endif
 };
 
 struct EmptyListItems : position_tagged {
@@ -105,11 +101,7 @@ BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataMember, name, memberList)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodValueCall, name, memberList, method, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::UserInput, dummy)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::TypeConvItems, toType, expression)
-#ifdef ABACI_USE_OLDER_BOOST
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListItems, firstElement, otherElements)
-#else
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListItems, elements)
-#endif
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::EmptyListItems, elementType)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListIndex, name, indexes)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataListIndex, name, memberList, indexes)

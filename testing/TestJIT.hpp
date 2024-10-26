@@ -8,9 +8,10 @@
 struct TestJITImpl;
 
 class TestJIT {
-    std::shared_ptr<TestJITImpl> impl;
+    std::unique_ptr<TestJITImpl> impl;
 public:
-    TestJIT() = default;
+    TestJIT();
+    ~TestJIT();
     enum class Result{ SyntaxError, ExceptionThrown, OK };
     Result test(const std::string& programText, const std::string& inputText);
     const std::string getOutput();

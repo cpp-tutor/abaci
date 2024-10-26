@@ -432,15 +432,10 @@ auto makeTypeConversion = [](auto& ctx){
 };
 
 auto makeList = [](auto& ctx){
-#ifdef ABACI_USE_OLDER_BOOST
     const ListItems& items = _attr(ctx);
     ExprList elements{ items.firstElement };
     elements.insert(elements.end(), items.otherElements.begin(), items.otherElements.end());
     _val(ctx) = List{ std::make_shared<ExprList>(std::move(elements)), "" };
-#else
-    const ListItems& items = _attr(ctx);
-    _val(ctx) = List{ std::make_shared<ExprList>(items.elements), "" };
-#endif
 };
 
 auto makeEmptyList = [](auto& ctx){

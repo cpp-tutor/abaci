@@ -47,7 +47,9 @@ using PrintList = std::vector<std::variant<ExprNode,Operator>>;
 
 struct PrintStmt : StmtData {
     ExprNode expression;
+#ifdef ABACI_USE_OLDER_BOOST
     Operator separator;
+#endif
     ExprList format;
 };
 
@@ -84,7 +86,7 @@ struct WhenStmt {
     StmtList block;
 };
 
-struct WhenList : std::vector<WhenStmt>, position_tagged {};
+using WhenList = std::vector<WhenStmt>;
 
 struct CaseStmt : StmtData {
     ExprNode caseValue;
@@ -164,7 +166,11 @@ struct DataListAssignStmt : StmtData {
 } // namespace abaci::ast
 
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::CommentStmt, commentString)
+#ifdef ABACI_USE_OLDER_BOOST
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::PrintStmt, expression, separator, format)
+#else
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::PrintStmt, expression, format)
+#endif
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::InitStmt, name, assign, value)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::AssignStmt, name, value)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::IfStmt, condition, trueBlock, falseBlock)
