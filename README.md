@@ -57,7 +57,7 @@ This project is currently under heavy development and should be considered pre-a
 * Closures (major changes are likely needed)
 * Error reporting tidied up *(completed)* with more accurate location reporting *(investigated and considered not possible)* 
 * Memory leaks closed *(completed)*
-* Unit tests of Abaci code
+* Unit tests of Abaci code *(in progress)*
 
 Please raise feature requests (and bugs found) as issues.
 
@@ -129,7 +129,7 @@ endif
 ```
 case *expression>
   when *match1* statements...
-  when *match2*... statements...
+  when *match2*, *match3*,... statements...
   else  # this is optional
   statements...
 endcase
@@ -219,6 +219,8 @@ f.i(2.5)
 * **0.0.5** (2024-Sep-28): Fifth release with list support and many other improvements
 
 * **0.0.6** (2024-Oct-04): Sixth release with code improvements and support for different builds
+
+* **0.1.1** (2024-Oct-22): Seventh release with small syntax changes and unit testing capability
 
 ## License
 
