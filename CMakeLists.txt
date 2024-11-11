@@ -46,10 +46,9 @@ set(SOURCES
     src/codegen/TypeCodeGen.cpp
     src/engine/Cache.cpp
     src/engine/JIT.cpp
-    src/main.cpp
 )
 
-add_executable(abaci ${SOURCES})
+add_executable(abaci ${SOURCES} src/main.cpp)
 
 llvm_map_components_to_libnames(LLVM_LIBS core executionengine interpreter analysis native bitwriter orcjit)
 target_link_libraries(abaci ${LLVM_LIBS})
@@ -57,3 +56,22 @@ target_link_libraries(abaci ${LLVM_LIBS})
 if (NOT ABACI_USE_STD_FORMAT)
     target_link_libraries(abaci fmt::fmt)
 endif()
+
+set(TEST_SOURCES
+    testing/TestJIT.cpp
+    testing/TestJITImpl.cpp
+    testing/block.cpp
+    testing/class.cpp
+    testing/expression.cpp
+    testing/function.cpp
+    testing/method.cpp
+    testing/print.cpp
+)
+
+add_executable(abacitests EXCLUDE_FROM_ALL ${SOURCES} ${TEST_SOURCES})
+target_link_libraries(abacitests ${LLVM_LIBS} boost_test_exec_monitor boost_unit_test_framework)
+if (NOT ABACI_USE_STD_FORMAT)
+    target_link_libraries(abacitests fmt::fmt)
+endif()
+
+add_custom_target(test abacitests)
