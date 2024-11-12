@@ -57,7 +57,7 @@ This project is currently under heavy development and should be considered pre-a
 * Closures (major changes are likely needed)
 * Error reporting tidied up *(completed)* with more accurate location reporting *(investigated and considered not possible)* 
 * Memory leaks closed *(completed)*
-* Unit tests of Abaci code *(in progress)*
+* Unit tests of Abaci code *(completed)*
 
 Please raise feature requests (and bugs found) as issues.
 
@@ -206,6 +206,20 @@ f.i(2.5)
 \# This is a comment
 ```
 
+## Unit tests
+
+There is an additional target `abacitests` which creates an executable in directory `testing`. To build this on Linux use:
+
+```bash
+make test
+```
+
+On Windows, build sub-project `abacitests` to create `abacitests.exe`, or use:
+
+```bash
+msbuild Abaci.sln -t:abacitests -p:Configuration=Release -m
+```
+
 ## Version history
 
 * **0.0.1** (2024-Sep-07): First release of code for this project, many known bugs and problems
@@ -221,6 +235,8 @@ f.i(2.5)
 * **0.0.6** (2024-Oct-04): Sixth release with code improvements and support for different builds
 
 * **0.1.1** (2024-Oct-22): Seventh release with small syntax changes and unit testing capability
+
+* **0.1.2** (2024-Nov-12): Eighth release with integrated unit testing
 
 ## License
 
