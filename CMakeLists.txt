@@ -19,7 +19,7 @@ else()
     find_package(fmt REQUIRED)
 endif()
 
-find_package(Boost)
+find_package(Boost COMPONENTS unit_test_framework)
 
 if (Boost_FOUND OR Boost_INCLUDE_DIRS)
     include_directories(${Boost_INCLUDE_DIRS})
@@ -69,7 +69,7 @@ set(TEST_SOURCES
 )
 
 add_executable(abacitests EXCLUDE_FROM_ALL ${SOURCES} ${TEST_SOURCES})
-target_link_libraries(abacitests ${LLVM_LIBS} boost_test_exec_monitor boost_unit_test_framework)
+target_link_libraries(abacitests ${LLVM_LIBS} Boost::unit_test_framework)
 if (NOT ABACI_USE_STD_FORMAT)
     target_link_libraries(abacitests fmt::fmt)
 endif()
