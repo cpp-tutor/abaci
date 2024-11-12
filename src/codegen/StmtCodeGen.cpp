@@ -322,9 +322,7 @@ template<>
 void StmtCodeGen::codeGen(const CaseStmt& caseStmt) const {
     std::vector<std::pair<const ExprNode*,const StmtList*>> matches;
     for (const auto& match : caseStmt.matches) {
-#ifdef ABACI_USE_OLDER_BOOST
         matches.emplace_back(&match.expression, &match.block);
-#endif
         for (const auto& expression : match.expressions) {
             matches.emplace_back(&expression, &match.block);
         }

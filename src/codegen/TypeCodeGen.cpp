@@ -880,9 +880,7 @@ void TypeCodeGen::codeGen(const CaseStmt& caseStmt) const {
     }
     for (const auto& when : caseStmt.matches) {
         TypeEvalGen expr(context, cache, locals);
-#ifdef ABACI_USE_OLDER_BOOST
         expr(when.expression);
-#endif
         for (const auto& expression : when.expressions) {
             expr(expression);
         }
