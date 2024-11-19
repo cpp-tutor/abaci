@@ -41,6 +41,7 @@ MESSAGE(BadCoerceTypes, "Incompatible types.");
 MESSAGE(NoBoolean, "Cannot convert this type to Boolean.");
 
 MESSAGE(BadPrint, "Bad print entity.");
+MESSAGE(BadCall, "Bad call entity.");
 MESSAGE(NoConstantAssign, "Cannot reassign to constant \'{}\'.");
 MESSAGE(DataType, "Data member already has different type.");
 MESSAGE(BadStmtNode, "Bad StmtNode type.");

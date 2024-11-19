@@ -35,7 +35,7 @@ struct List {
 };
 
 union AbaciValue {
-    enum Type { None, Boolean, Integer, Floating, Complex, String, Instance, List, TypeMask = 15, Real, Imag, Constant = 64 };
+    enum Type { None, Boolean, Integer, Floating, Complex, String, Instance, List, TypeMask = 15, Real, Imag, Unset, Constant = 64 };
     uint64_t integer{};
     double floating;
     void *object;

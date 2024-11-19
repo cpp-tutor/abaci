@@ -36,16 +36,14 @@ using abaci::ast::ExprNode;
 using abaci::ast::ExprList;
 using abaci::ast::Variable;
 using abaci::ast::FunctionValueCall;
-using abaci::ast::DataMember;
-using abaci::ast::MethodValueCall;
 using abaci::ast::UserInput;
 using abaci::ast::TypeConvItems;
 using abaci::ast::TypeConv;
 using abaci::ast::ListItems;
 using abaci::ast::EmptyListItems;
 using abaci::ast::List;
-using abaci::ast::ListIndex;
-using abaci::ast::DataListIndex;
+using abaci::ast::CallList;
+using abaci::ast::MultiCall;
 using abaci::ast::StmtNode;
 using abaci::ast::StmtList;
 using abaci::ast::CommentStmt;
@@ -195,26 +193,24 @@ x3::rule<struct identifier_class, std::string> const identifier;
 x3::rule<struct variable_class, Variable> const variable;
 x3::rule<struct this_ptr_class, Variable> const this_ptr;
 x3::rule<class function_value_call, FunctionValueCall> const function_value_call;
-x3::rule<class data_value_call, DataMember> const data_value_call;
-x3::rule<class this_value_call, DataMember> const this_value_call;
-x3::rule<class data_method_call, MethodValueCall> const data_method_call;
-x3::rule<class this_method_call, MethodValueCall> const this_method_call;
+x3::rule<class call_index, ExprList> const call_index;
+x3::rule<class call_function, FunctionValueCall> const call_function;
+x3::rule<class call_list, CallList> const call_list;
+x3::rule<class this_call, MultiCall> const this_call;
+x3::rule<class multi_call, MultiCall> const multi_call;
 x3::rule<class user_input, UserInput> const user_input;
 x3::rule<class type_conversion_items, TypeConvItems> const type_conversion_items;
 x3::rule<class type_conversion, TypeConv> const type_conversion;
 x3::rule<struct list_items_class, ListItems> const list_items;
 x3::rule<struct empty_list_items_class, EmptyListItems> const empty_list_items;
 x3::rule<struct list_class, List> const list;
-x3::rule<struct list_index_class, ListIndex> const list_index;
-x3::rule<class data_list_index, DataListIndex> const data_list_index;
-x3::rule<class this_list_index, DataListIndex> const this_list_index;
 
 struct identitifer_class : x3::annotate_on_success {};
 struct variable_class : x3::annotate_on_success {};
 struct this_ptr_class : x3::annotate_on_success {};
 struct list_items_class : x3::annotate_on_success {};
 struct empty_list_items_class : x3::annotate_on_success {};
-struct list_index_class : x3::annotate_on_success {};
+struct list_class : x3::annotate_on_success {};
 
 struct comment_items_class;
 struct comment_class;
@@ -522,6 +518,11 @@ const auto data_value_call_def = variable >> +( DOT >> variable );
 const auto this_value_call_def = this_ptr >> *( DOT >> variable );
 const auto data_method_call_def = variable >> DOT >> *( variable >> DOT ) >> identifier >> call_args;
 const auto this_method_call_def = this_ptr >> DOT >> *( variable >> DOT ) >> identifier >> call_args;
+const auto call_index_def = +( LEFT_BRACKET >> expression >> RIGHT_BRACKET );
+const auto call_function_def = identifier >> call_args;
+const auto call_list_def = ( DOT >> call_function ) | ( DOT >> variable ) | call_index;
+const auto multi_call_def = variable >> *call_list;
+const auto this_call_def = this_ptr >> *call_list;
 const auto user_input_def = lit(INPUT);
 const auto type_conversion_items_def = ( string(INT) | string(FLOAT) | string(COMPLEX) | string(STR)
     | string(REAL) | string(IMAG) ) >> LEFT_PAREN >> expression >> RIGHT_PAREN;
@@ -557,9 +558,8 @@ const auto unary_def = *( minus | logical_not | bitwise_compl | question | bang 
 const auto index_n_def = index[MakeNode<ExprNode::Right>()];
 const auto index_def = primary_n >> *( exponent > unary_n );
 const auto primary_n_def = value[MakeNode<>()] | ( LEFT_PAREN > logic_or[MakeNode<ExprNode::Boolean>()] > RIGHT_PAREN )
-    | list[MakeNode<>()] | list_index[MakeNode<>()] | this_list_index[MakeNode<>()] | data_list_index[MakeNode<>()]
-    | type_conversion[MakeNode<>()] | function_value_call[MakeNode<>()] | this_method_call[MakeNode<>()] | data_method_call[MakeNode<>()] 
-    | this_value_call[MakeNode<>()] | data_value_call[MakeNode<>()] | user_input[MakeNode<>()] | variable[MakeNode<>()];
+    | type_conversion[MakeNode<>()] | function_value_call[MakeNode<>()] | this_call[MakeNode<>()] | multi_call[MakeNode<>()]
+    | list[MakeNode<>()] | user_input[MakeNode<>()];
 
 const auto keywords_def = lit(AND) | CASE | CLASS | COMPLEX | ELSE | ENDCASE | ENDCLASS | ENDFN | ENDIF | ENDWHILE
     | FALSE | FLOAT | FN | IF | IMAG | INPUT | INT | LET | NOT | OR | PRINT | REAL | REPEAT | RETURN | STR | THIS | TRUE | UNTIL | WHEN | WHILE;
@@ -626,9 +626,9 @@ BOOST_SPIRIT_DEFINE(expression, logic_or, logic_and, logic_and_n,
     bit_or, bit_or_n, bit_xor, bit_xor_n, bit_and, bit_and_n,
     equality, equality_n, comparison, comparison_n,
     term, term_n, factor, factor_n, unary, unary_n, index, index_n, primary_n)
-BOOST_SPIRIT_DEFINE(identifier, variable, function_value_call, data_value_call, this_value_call,
-    data_method_call, this_method_call, user_input, type_conversion_items, type_conversion, keywords,
-    list_items, empty_list_items, list, list_index, data_list_index, this_list_index, list_assign_items, list_assign_stmt,
+BOOST_SPIRIT_DEFINE(identifier, variable, function_value_call,
+    call_index, call_function, call_list, this_call, multi_call, user_input, type_conversion_items, type_conversion, keywords,
+    list_items, empty_list_items, list, list_assign_items, list_assign_stmt,
     comment_items, comment, print_items, print_stmt,
     let_items, let_stmt, assign_items, assign_stmt, if_items, if_stmt,
     when_items, while_items, while_stmt, repeat_items, repeat_stmt, case_items, case_stmt,

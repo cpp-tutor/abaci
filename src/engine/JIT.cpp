@@ -131,11 +131,10 @@ void JIT::initialize() {
         BasicBlock *entryBlock = BasicBlock::Create(*context, "entry", currentFunction);
         BasicBlock *exitBlock = BasicBlock::Create(*context, "exit");
         builder.SetInsertPoint(entryBlock);
-        for (std::size_t index = 0; const auto& param : cacheFunction.parameters) {
+        for (std::size_t index = 0; index != cacheFunction.parameters.size(); ++index) {
             Value *paramValue = makeMutableValue(*this, instantiation.parameterTypes.at(index));
             parameters.setValue(index, paramValue);
             storeMutableValue(*this, paramValue, currentFunction->getArg(index));
-            ++index;
         }
         if (instantiation.returnType != AbaciValue::None) {
             Value *returnValue = makeMutableValue(*this, instantiation.returnType);
@@ -143,13 +142,13 @@ void JIT::initialize() {
         }
         StmtCodeGen stmt(*this, nullptr, &parameters, exitBlock);
         stmt(cacheFunction.body);
-        if (!dynamic_cast<const ReturnStmt*>(cacheFunction.body.statements.back().get())) {
+        if (cacheFunction.body.statements.empty() || !dynamic_cast<const ReturnStmt*>(cacheFunction.body.statements.back().get())) {
             builder.CreateBr(exitBlock);
         }
         exitBlock->insertInto(currentFunction);
         builder.SetInsertPoint(exitBlock);
         if (instantiation.returnType == AbaciValue::None) {
-            builder.CreateRetVoid();
+            builder.CreateRet(ConstantPointerNull::get(PointerType::get(getNamedType("struct.Instance"), 0)));
         }
         else {
             builder.CreateRet(loadMutableValue(*this, parameters.getValue(parameters.getIndex(RETURN_V, true).second), instantiation.returnType));

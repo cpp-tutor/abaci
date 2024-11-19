@@ -36,16 +36,14 @@ struct FunctionValueCall : position_tagged {
     ExprList args;
 };
 
-struct DataMember : position_tagged {
-    Variable name;
-    std::vector<Variable> memberList;
+struct CallList {
+    enum Type { TypeVariable, TypeIndexes, TypeFunction };
+    std::variant<Variable,ExprList,FunctionValueCall> call;
 };
 
-struct MethodValueCall : position_tagged {
+struct MultiCall : position_tagged {
     Variable name;
-    std::vector<Variable> memberList;
-    std::string method;
-    ExprList args;
+    std::vector<CallList> calls;
 };
 
 struct UserInput : position_tagged {
@@ -62,20 +60,9 @@ struct List {
     std::string elementType;
 };
 
-struct ListIndex : position_tagged {
-    Variable name;
-    ExprList indexes;
-};
-
-struct DataListIndex : position_tagged {
-    Variable name;
-    std::vector<Variable> memberList;
-    ExprList indexes;
-};
-
 struct ExprNode : position_tagged {
     enum Association { Unset, Left, Right, Unary, Boolean };
-    std::variant<std::monostate,std::size_t,Operator,std::pair<Association,ExprList>,Variable,FunctionValueCall,DataMember,MethodValueCall,UserInput,TypeConv,List,ListIndex,DataListIndex> data;
+    std::variant<std::monostate,std::size_t,Operator,std::pair<Association,ExprList>,FunctionValueCall,MultiCall,UserInput,TypeConv,List> data;
 };
 
 struct TypeConvItems : position_tagged {
@@ -97,13 +84,11 @@ struct EmptyListItems : position_tagged {
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExprNode, data)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Variable, name)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::FunctionValueCall, name, args)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataMember, name, memberList)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodValueCall, name, memberList, method, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::UserInput, dummy)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::TypeConvItems, toType, expression)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListItems, firstElement, otherElements)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::EmptyListItems, elementType)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListIndex, name, indexes)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataListIndex, name, memberList, indexes)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::CallList, call)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MultiCall, name, calls)
 
 #endif

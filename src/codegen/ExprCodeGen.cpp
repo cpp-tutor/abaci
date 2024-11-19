@@ -15,13 +15,11 @@ using abaci::ast::ExprNode;
 using abaci::ast::ExprList;
 using abaci::ast::Variable;
 using abaci::ast::FunctionValueCall;
-using abaci::ast::DataMember;
-using abaci::ast::MethodValueCall;
 using abaci::ast::UserInput;
 using abaci::ast::TypeConv;
-using abaci::ast::ListIndex;
 using abaci::ast::List;
-using abaci::ast::DataListIndex;
+using abaci::ast::CallList;
+using abaci::ast::MultiCall;
 using abaci::lib::makeString;
 using abaci::utility::AbaciValue;
 using abaci::utility::Operator;
@@ -708,128 +706,6 @@ void ExprCodeGen::codeGen(const FunctionValueCall& call) const {
 }
 
 template<>
-void ExprCodeGen::codeGen(const DataMember& data) const {
-    const std::string& name = data.name.name;
-    Type type;
-    if (locals) {
-        auto [ variables, index ] = locals->getIndex(name);
-        if (index != LocalSymbols::noVariable) {
-            type = variables->getType(index);
-            Value *value = loadMutableValue(jit, variables->getValue(index), type);
-            for (const auto& member : data.memberList) {
-                if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
-                    UnexpectedError0(BadObject);
-                }
-                auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
-                Assert(instanceType != nullptr);
-                auto index = jit.getCache()->getMemberIndex(jit.getCache()->getClass(instanceType->className), member);
-                type = instanceType->variableTypes.at(index);
-                ArrayType *array = ArrayType::get(builder.getInt64Ty(), instanceType->variableTypes.size());
-                Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.Instance"), value, 2));
-                Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
-                value = builder.CreateLoad(typeToLLVMType(jit, type), valuePtr);
-            }
-            push({ value, removeConstFromType(type) });
-            return;
-        }
-    }
-    auto globals = jit.getRuntimeContext().globals;
-    auto globalIndex = globals->getIndex(name);
-    if (globalIndex != GlobalSymbols::noVariable) {
-        Value *value = loadGlobalValue(jit, globalIndex, globals->getType(globalIndex));
-        type = globals->getType(globalIndex);
-        for (const auto& member : data.memberList) {
-            if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
-                UnexpectedError0(BadObject);
-            }
-            auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
-            Assert(instanceType != nullptr);
-            auto index = jit.getCache()->getMemberIndex(jit.getCache()->getClass(instanceType->className), member);
-            type = instanceType->variableTypes.at(index);
-            ArrayType *array = ArrayType::get(builder.getInt64Ty(), instanceType->variableTypes.size());
-            Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.Instance"), value, 2));
-            Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
-            value = builder.CreateLoad(typeToLLVMType(jit, type), valuePtr);
-        }
-        push({ value, removeConstFromType(type) });
-    }
-    else {
-        UnexpectedError1(VariableNotExist, name);
-    }
-}
-
-template<>
-void ExprCodeGen::codeGen(const MethodValueCall& methodCall) const {
-    const std::string& name = methodCall.name.name;
-    Type type;
-    Value *thisPtr = nullptr;
-    if (locals) {
-        auto [ variables, index ] = locals->getIndex(name);
-        if (index != LocalSymbols::noVariable) {
-            type = variables->getType(index);
-            Value *value = loadMutableValue(jit, variables->getValue(index), type);
-            for (const auto& member : methodCall.memberList) {
-                if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
-                    UnexpectedError0(BadObject);
-                }
-                auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
-                Assert(instanceType != nullptr);
-                auto index = jit.getCache()->getMemberIndex(jit.getCache()->getClass(instanceType->className), member);
-                type = instanceType->variableTypes.at(index);
-                ArrayType *array = ArrayType::get(builder.getInt64Ty(), instanceType->variableTypes.size());
-                Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.Instance"), value, 2));
-                Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
-                value = builder.CreateLoad(typeToLLVMType(jit, type), valuePtr);
-            }
-            thisPtr = value;
-        }
-    }
-    auto globals = jit.getRuntimeContext().globals;
-    auto globalIndex = globals->getIndex(name);
-    if (globalIndex != GlobalSymbols::noVariable) {
-        Value *value = loadGlobalValue(jit, globalIndex, globals->getType(globalIndex));
-        type = globals->getType(globalIndex);
-        for (const auto& member : methodCall.memberList) {
-            if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
-                UnexpectedError0(BadObject);
-            }
-            auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
-            Assert(instanceType != nullptr);
-            auto index = jit.getCache()->getMemberIndex(jit.getCache()->getClass(instanceType->className), member);
-            type = instanceType->variableTypes.at(index);
-            ArrayType *array = ArrayType::get(builder.getInt64Ty(), instanceType->variableTypes.size());
-            Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.Instance"), value, 2));
-            Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
-            value = builder.CreateLoad(typeToLLVMType(jit, type), valuePtr);
-        }
-        thisPtr = value;
-    }
-    if (thisPtr != nullptr) {
-        auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
-        Assert(instanceType != nullptr);
-        std::string methodName = instanceType->className + '.' + methodCall.method;
-        std::vector<Value*> arguments;
-        std::vector<Type> types;
-        for (const auto& arg : methodCall.args) {
-            ExprCodeGen expr(jit, locals, temps);
-            expr(arg);
-            auto result = expr.get();
-            arguments.push_back(result.first);
-            types.push_back(result.second);
-        }
-        types.insert(types.begin(), instanceType);
-        arguments.insert(arguments.begin(), thisPtr);
-        auto returnType = jit.getCache()->getFunctionInstantiationType(methodName, types);
-        auto result = builder.CreateCall(module.getFunction(mangled(methodName, types)), arguments);
-                temps->addTemporary({ result, returnType });
-        push({ result, returnType });
-    }
-    else {
-        UnexpectedError0(BadObject);
-    }
-}
-
-template<>
 void ExprCodeGen::codeGen([[maybe_unused]] const UserInput& input) const {
     Value *userInput = builder.CreateCall(module.getFunction("userInput"), { getContextValue(jit) });
     temps->addTemporary({ userInput, AbaciValue::String });
@@ -901,161 +777,53 @@ void ExprCodeGen::codeGen(const List& list) const {
 }
 
 template<>
-void ExprCodeGen::codeGen(const ListIndex& listIndex) const {
-    if (locals) {
-        auto [ variables, index ] = locals->getIndex(listIndex.name.name);
-        if (index != LocalSymbols::noVariable) {
-            Type type = variables->getType(index);
-            if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
-                if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
-                    Value *value = loadMutableValue(jit, variables->getValue(index), type);
-                    for (const auto& indexExpression : listIndex.indexes) {
-                        if (typePtr == nullptr) {
-                            UnexpectedError1(TooManyIndexes, listIndex.name.name);
-                        }
-                        ExprCodeGen expr(jit, locals, temps);
-                        expr(indexExpression);
-                        if (typeToScalar(expr.get().second) != AbaciValue::Integer) {
-                            UnexpectedError0(IndexNotInt);
-                        }
-                        Value *index = expr.get().first;
-                        Value *listSize = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 0));
-                        ArrayType *array = ArrayType::get(builder.getInt64Ty(), 0);
-                        Value *listElements = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 1));
-                        Value *elementPtr = builder.CreateGEP(array, listElements, { builder.getInt32(0), index });
-                        type = typePtr->elementType;
-                        value = builder.CreateLoad(typeToLLVMType(jit, type), elementPtr);
-                        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
-                            typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
-                        }
-                        else {
-                            typePtr = nullptr;
-                        }
-                    }
-                    push({ value, type });
-                    return;
-                }
-            }
-            UnexpectedError1(VariableNotList, listIndex.name.name);
-        }
-    }
-    auto globals = jit.getRuntimeContext().globals;
-    auto globalIndex = globals->getIndex(listIndex.name.name);
-    if (globalIndex != GlobalSymbols::noVariable) {
-        Type type = globals->getType(globalIndex);
-        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
-            if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
-                Value *value = loadGlobalValue(jit, globalIndex, type);
-                for (const auto& indexExpression : listIndex.indexes) {
-                    if (typePtr == nullptr) {
-                        UnexpectedError1(TooManyIndexes, listIndex.name.name);
-                    }
-                    ExprCodeGen expr(jit, locals, temps);
-                    expr(indexExpression);
-                    if (typeToScalar(expr.get().second) != AbaciValue::Integer) {
-                        UnexpectedError0(IndexNotInt);
-                    }
-                    Value *index = expr.get().first;
-                    Value *listSize = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 0));
-                    ArrayType *array = ArrayType::get(builder.getInt64Ty(), 0);
-                    Value *listElements = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 1));
-                    Value *elementPtr = builder.CreateGEP(array, listElements, { builder.getInt32(0), index });
-                    type = typePtr->elementType;
-                    value = builder.CreateLoad(typeToLLVMType(jit, type), elementPtr);
-                    if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
-                        typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
-                    }
-                    else {
-                        typePtr = nullptr;
-                    }
-                }
-                push({ value, type });
-                return;
-            }
-        }
-    }
-    else {
-        UnexpectedError1(VariableNotExist, listIndex.name.name);
-    }
-}
-
-template<>
-void ExprCodeGen::codeGen(const DataListIndex& dataIndex) const {
-    const std::string& name = dataIndex.name.name;
-    Type type;
+void ExprCodeGen::codeGen(const MultiCall& call) const {
+    std::string name = call.name.name;
+    Type type = AbaciValue::Unset;
+    TypedValue value = { nullptr, type };
     if (locals) {
         auto [ variables, index ] = locals->getIndex(name);
         if (index != LocalSymbols::noVariable) {
-            type = variables->getType(index);
-            Value *value = loadMutableValue(jit, variables->getValue(index), type);
-            for (const auto& member : dataIndex.memberList) {
+            type = removeConstFromType(variables->getType(index));
+            value = { loadMutableValue(jit, variables->getValue(index), type), type };
+        }
+    }
+    if (type == AbaciValue::Unset) {
+        auto globals = jit.getRuntimeContext().globals;
+        auto globalIndex = globals->getIndex(name);
+        if (globalIndex != GlobalSymbols::noVariable) {
+            type = removeConstFromType(globals->getType(globalIndex));
+            value = { loadGlobalValue(jit, globalIndex, type), type };
+        }
+    }
+    for (const auto& callElement : call.calls) {
+        switch (callElement.call.index()) {
+            case CallList::TypeVariable: {
+                const auto& callVariable = std::get<Variable>(callElement.call);
                 if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
                     UnexpectedError0(BadObject);
                 }
                 auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
                 Assert(instanceType != nullptr);
-                auto index = jit.getCache()->getMemberIndex(jit.getCache()->getClass(instanceType->className), member);
+                auto index = jit.getCache()->getMemberIndex(jit.getCache()->getClass(instanceType->className), callVariable.name);
                 type = instanceType->variableTypes.at(index);
                 ArrayType *array = ArrayType::get(builder.getInt64Ty(), instanceType->variableTypes.size());
-                Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.Instance"), value, 2));
+                Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.Instance"), value.first, 2));
                 Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
-                value = builder.CreateLoad(typeToLLVMType(jit, type), valuePtr);
+                value = { builder.CreateLoad(typeToLLVMType(jit, type), valuePtr), type };
+                name += '.' + callVariable.name;
+                break;
             }
-            if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
-                if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
-                    for (const auto& indexExpression : dataIndex.indexes) {
-                        if (typePtr == nullptr) {
-                            UnexpectedError1(TooManyIndexes, dataIndex.name.name);
-                        }
-                        ExprCodeGen expr(jit, locals, temps);
-                        expr(indexExpression);
-                        if (typeToScalar(expr.get().second) != AbaciValue::Integer) {
-                            UnexpectedError0(IndexNotInt);
-                        }
-                        Value *index = expr.get().first;
-                        Value *listSize = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 0));
-                        ArrayType *array = ArrayType::get(builder.getInt64Ty(), 0);
-                        Value *listElements = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 1));
-                        Value *elementPtr = builder.CreateGEP(array, listElements, { builder.getInt32(0), index });
-                        type = typePtr->elementType;
-                        value = builder.CreateLoad(typeToLLVMType(jit, type), elementPtr);
-                        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
-                            typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
-                        }
-                        else {
-                            typePtr = nullptr;
-                        }
-                    }
-                    push({ value, type });
-                    return;
+            case CallList::TypeIndexes: {
+                const auto& callIndexes = std::get<ExprList>(callElement.call);
+                if (typeToScalar(removeConstFromType(type)) != AbaciValue::List) {
+                    UnexpectedError1(VariableNotList, name);
                 }
-            }
-            UnexpectedError1(VariableNotList, name);
-        }
-    }
-    auto globals = jit.getRuntimeContext().globals;
-    auto globalIndex = globals->getIndex(name);
-    if (globalIndex != GlobalSymbols::noVariable) {
-        Value *value = loadGlobalValue(jit, globalIndex, globals->getType(globalIndex));
-        type = globals->getType(globalIndex);
-        for (const auto& member : dataIndex.memberList) {
-            if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
-                UnexpectedError0(BadObject);
-            }
-            auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
-            Assert(instanceType != nullptr);
-            auto index = jit.getCache()->getMemberIndex(jit.getCache()->getClass(instanceType->className), member);
-            type = instanceType->variableTypes.at(index);
-            ArrayType *array = ArrayType::get(builder.getInt64Ty(), instanceType->variableTypes.size());
-            Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.Instance"), value, 2));
-            Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
-            value = builder.CreateLoad(typeToLLVMType(jit, type), valuePtr);
-        }
-        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
-            if (auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type))) {
-                for (const auto& indexExpression : dataIndex.indexes) {
+                auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                Assert(typePtr != nullptr);
+                for (const auto& indexExpression : callIndexes) {
                     if (typePtr == nullptr) {
-                        UnexpectedError1(TooManyIndexes, dataIndex.name.name);
+                        UnexpectedError1(TooManyIndexes, name);
                     }
                     ExprCodeGen expr(jit, locals, temps);
                     expr(indexExpression);
@@ -1063,12 +831,12 @@ void ExprCodeGen::codeGen(const DataListIndex& dataIndex) const {
                         UnexpectedError0(IndexNotInt);
                     }
                     Value *index = expr.get().first;
-                    Value *listSize = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 0));
+                    Value *listSize = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), value.first, 0));
                     ArrayType *array = ArrayType::get(builder.getInt64Ty(), 0);
-                    Value *listElements = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), value, 1));
+                    Value *listElements = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), value.first, 1));
                     Value *elementPtr = builder.CreateGEP(array, listElements, { builder.getInt32(0), index });
                     type = typePtr->elementType;
-                    value = builder.CreateLoad(typeToLLVMType(jit, type), elementPtr);
+                    value = { builder.CreateLoad(typeToLLVMType(jit, type), elementPtr), type };
                     if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
                         typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
                     }
@@ -1076,14 +844,42 @@ void ExprCodeGen::codeGen(const DataListIndex& dataIndex) const {
                         typePtr = nullptr;
                     }
                 }
-                push({ value, type });
-                return;
+                break;
             }
+            case CallList::TypeFunction: {
+                const auto& callMethod = std::get<FunctionValueCall>(callElement.call);
+                if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
+                    LogicError0(BadObject);
+                }
+                auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
+                Assert(instanceType != nullptr);
+                std::string methodName = instanceType->className + '.' + callMethod.name;
+                std::vector<Value*> arguments;
+                std::vector<Type> types;
+                for (const auto& arg : callMethod.args) {
+                    ExprCodeGen expr(jit, locals, temps);
+                    expr(arg);
+                    auto result = expr.get();
+                    arguments.push_back(result.first);
+                    types.push_back(result.second);
+                }
+                types.insert(types.begin(), instanceType);
+                arguments.insert(arguments.begin(), value.first);
+                type = jit.getCache()->getFunctionInstantiationType(methodName, types);
+                auto result = builder.CreateCall(module.getFunction(mangled(methodName, types)), arguments);
+                temps->addTemporary({ result, type });
+                value = { result, type };
+                break;
+            }
+            default:
+                UnexpectedError0(BadCall);
         }
-        UnexpectedError1(VariableNotList, name);
+    }
+    if (type == AbaciValue::Unset) {
+        UnexpectedError1(VariableNotExist, name);
     }
     else {
-        UnexpectedError1(VariableNotExist, name);
+        push(value);
     }
 }
 

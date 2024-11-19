@@ -69,14 +69,19 @@ String *cloneString(String *existing) {
 }
 
 Instance *cloneInstance(Instance *existing) {
-    auto *object = new Instance{};
-    auto length = strlen(reinterpret_cast<char*>(existing->className));
-    object->className = new char8_t[length + 1];
-    strcpy(reinterpret_cast<char*>(object->className), reinterpret_cast<char*>(existing->className));
-    object->variablesCount = existing->variablesCount;
-    object->variables = new AbaciValue[existing->variablesCount];
-    memset(reinterpret_cast<void*>(object->variables), 0, sizeof(AbaciValue) * existing->variablesCount);
-    return object;
+    if (existing != nullptr) {
+        auto *object = new Instance{};
+        auto length = strlen(reinterpret_cast<char*>(existing->className));
+        object->className = new char8_t[length + 1];
+        strcpy(reinterpret_cast<char*>(object->className), reinterpret_cast<char*>(existing->className));
+        object->variablesCount = existing->variablesCount;
+        object->variables = new AbaciValue[existing->variablesCount];
+        memset(reinterpret_cast<void*>(object->variables), 0, sizeof(AbaciValue) * existing->variablesCount);
+        return object;
+    }
+    else {
+        return nullptr;
+    }
 }
 
 List *cloneList(List *existing) {
@@ -97,9 +102,11 @@ void destroyString(String *object) {
 }
 
 void destroyInstance(Instance *object) {
-    delete[] object->className;
-    delete[] object->variables;
-    delete object;
+    if (object != nullptr) {
+        delete[] object->className;
+        delete[] object->variables;
+        delete object;
+    }
 }
 
 void destroyList(List *object) {
