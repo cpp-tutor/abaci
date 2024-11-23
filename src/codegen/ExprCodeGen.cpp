@@ -630,27 +630,6 @@ void ExprCodeGen::codeGen(const std::pair<ExprNode::Association,ExprList>& listN
 }
 
 template<>
-void ExprCodeGen::codeGen(const Variable& variable) const {
-    if (locals) {
-        auto [ variables, index ] = locals->getIndex(variable.name);
-        if (index != LocalSymbols::noVariable) {
-            auto type = removeConstFromType(variables->getType(index));
-            push({ loadMutableValue(jit, variables->getValue(index), type), type });
-            return;
-        }
-    }
-    auto globals = jit.getRuntimeContext().globals;
-    auto globalIndex = globals->getIndex(variable.name);
-    if (globalIndex != GlobalSymbols::noVariable) {
-        auto type = removeConstFromType(globals->getType(globalIndex));
-        push({ loadGlobalValue(jit, globalIndex, type), type });
-    }
-    else {
-        UnexpectedError1(VariableNotExist, variable.name);
-    }
-}
-
-template<>
 void ExprCodeGen::codeGen(const FunctionValueCall& call) const {
     switch (jit.getCache()->getCacheType(call.name)) {
         case Cache::CacheFunction: {
@@ -816,13 +795,16 @@ void ExprCodeGen::codeGen(const MultiCall& call) const {
             }
             case CallList::TypeIndexes: {
                 const auto& callIndexes = std::get<ExprList>(callElement.call);
-                if (typeToScalar(removeConstFromType(type)) != AbaciValue::List) {
+                std::shared_ptr<TypeList> typePtr;
+                if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
+                    typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    Assert(typePtr != nullptr);
+                }
+                else if (typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
                     UnexpectedError1(VariableNotList, name);
                 }
-                auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
-                Assert(typePtr != nullptr);
                 for (const auto& indexExpression : callIndexes) {
-                    if (typePtr == nullptr) {
+                    if (typePtr == nullptr && typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
                         UnexpectedError1(TooManyIndexes, name);
                     }
                     ExprCodeGen expr(jit, locals, temps);
@@ -830,18 +812,28 @@ void ExprCodeGen::codeGen(const MultiCall& call) const {
                     if (typeToScalar(expr.get().second) != AbaciValue::Integer) {
                         UnexpectedError0(IndexNotInt);
                     }
-                    Value *index = expr.get().first;
-                    Value *listSize = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), value.first, 0));
-                    ArrayType *array = ArrayType::get(builder.getInt64Ty(), 0);
-                    Value *listElements = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), value.first, 1));
-                    Value *elementPtr = builder.CreateGEP(array, listElements, { builder.getInt32(0), index });
-                    type = typePtr->elementType;
-                    value = { builder.CreateLoad(typeToLLVMType(jit, type), elementPtr), type };
-                    if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
-                        typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
+                        Value *index = expr.get().first;
+                        Value *listSize = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), value.first, 0));
+                        ArrayType *array = ArrayType::get(builder.getInt64Ty(), 0);
+                        Value *listElements = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), value.first, 1));
+                        Value *elementPtr = builder.CreateGEP(array, listElements, { builder.getInt32(0), index });
+                        type = typePtr->elementType;
+                        value = { builder.CreateLoad(typeToLLVMType(jit, type), elementPtr), type };
+                        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                            typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                        }
+                        else {
+                            typePtr = nullptr;
+                        }
                     }
-                    else {
-                        typePtr = nullptr;
+                    else if (typeToScalar(removeConstFromType(type)) == AbaciValue::String) {
+                        if (&indexExpression != &callIndexes.back()) {
+                            UnexpectedError1(TooManyIndexes, name);
+                        }
+                        Value *index = expr.get().first;
+                        value = { builder.CreateCall(module.getFunction("indexString"), { value.first, index }), AbaciValue::String };
+                        temps->addTemporary(value);
                     }
                 }
                 break;

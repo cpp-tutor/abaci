@@ -92,6 +92,8 @@ void JIT::initialize() {
     Function::Create(compareStringType, Function::ExternalLinkage, "compareString", module.get());
     FunctionType *concatStringType = FunctionType::get(PointerType::get(stringType, 0), { PointerType::get(stringType, 0), PointerType::get(stringType, 0) }, false);
     Function::Create(concatStringType, Function::ExternalLinkage, "concatString", module.get());
+    FunctionType *indexStringType = FunctionType::get(PointerType::get(stringType, 0), { PointerType::get(stringType, 0), builder.getInt64Ty() }, false);
+    Function::Create(indexStringType, Function::ExternalLinkage, "indexString", module.get());
     FunctionType *deleteElementType = FunctionType::get(builder.getVoidTy(), { PointerType::get(listType, 0), builder.getInt64Ty() }, false);
     Function::Create(deleteElementType, Function::ExternalLinkage, "deleteElement", module.get());
     FunctionType *destroyComplexType = FunctionType::get(builder.getVoidTy(), { PointerType::get(complexType, 0) }, false);
@@ -195,6 +197,7 @@ ExecFunctionType JIT::getExecFunction() {
             RUNTIME_FUNCTION("opComplex", &opComplex),
             RUNTIME_FUNCTION("compareString", &compareString),
             RUNTIME_FUNCTION("concatString", &concatString),
+            RUNTIME_FUNCTION("indexString", &indexString),
             RUNTIME_FUNCTION("deleteElement", &deleteElement),
             RUNTIME_FUNCTION("cloneComplex", &cloneComplex),
             RUNTIME_FUNCTION("cloneString", &cloneString),

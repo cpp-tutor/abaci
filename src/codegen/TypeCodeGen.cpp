@@ -336,23 +336,6 @@ void TypeEvalGen::codeGen(const std::pair<ExprNode::Association,ExprList>& listN
     }
 }
 
-
-template<>
-void TypeEvalGen::codeGen(const Variable& variable) const {
-    if (locals) {
-        if (auto [ variables, index ] = locals->getIndex(variable.name); index != LocalSymbols::noVariable) {
-            push(removeConstFromType(variables->getType(index)));
-            return;
-        }
-    }
-    if (auto globalIndex = context->globals->getIndex(variable.name); globalIndex != GlobalSymbols::noVariable) {
-        push(removeConstFromType(context->globals->getType(globalIndex)));
-    }
-    else {
-        LogicError1(VariableNotExist, variable.name);
-    }
-}
-
 template<>
 void TypeEvalGen::codeGen(const FunctionValueCall& call) const {
     switch (cache->getCacheType(call.name)) {
@@ -474,13 +457,16 @@ void TypeEvalGen::codeGen(const MultiCall& call) const {
             }
             case CallList::TypeIndexes: {
                 const auto& callIndexes = std::get<ExprList>(callElement.call);
-                if (typeToScalar(removeConstFromType(type)) != AbaciValue::List) {
+                std::shared_ptr<TypeList> typePtr;
+                if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
+                    typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    Assert(typePtr != nullptr);
+                }
+                else if (typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
                     LogicError1(VariableNotList, name);
                 }
-                auto typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
-                Assert(typePtr != nullptr);
                 for (const auto& indexExpression : callIndexes) {
-                    if (typePtr == nullptr) {
+                    if (typePtr == nullptr && typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
                         LogicError1(TooManyIndexes, name);
                     }
                     TypeEvalGen expr(context, cache, locals);
@@ -488,12 +474,19 @@ void TypeEvalGen::codeGen(const MultiCall& call) const {
                     if (typeToScalar(expr.get()) != AbaciValue::Integer) {
                         LogicError0(IndexNotInt);
                     }
-                    type = typePtr->elementType;
-                    if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
-                        typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
+                        type = typePtr->elementType;
+                        if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
+                            typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                        }
+                        else {
+                            typePtr = nullptr;
+                        }
                     }
-                    else {
-                        typePtr = nullptr;
+                    else if (typeToScalar(removeConstFromType(type)) == AbaciValue::String) {
+                        if (&indexExpression != &callIndexes.back()) {
+                            LogicError1(TooManyIndexes, name);
+                        }
                     }
                 }
                 break;

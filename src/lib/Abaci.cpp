@@ -128,6 +128,10 @@ String *concatString(String *str1, String *str2) {
     return object;
 }
 
+String *indexString(String *object, std::size_t index) {
+    return makeString(object->ptr + index, 1);
+}
+
 Complex *opComplex(Operator op, Complex *operand1, Complex *operand2) {
     std::complex<double> a(operand1->real, operand1->imag), b, r;
     if (operand2 != nullptr) {
