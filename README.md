@@ -40,7 +40,7 @@ Run `./abaci` without arguments to enter an interactive session, or with a sourc
 To create the executable `abaci.exe` under Windows, using CMake and VS 2022, first build LLVM from source. Then make a `build` directory at the same level as `src` and issue:
 
 ```bash
-cmake.exe .. -A x64 -Thost=x64 -DLLVM_DIR=C:\Users\<path_to>\llvm-19.1.1\lib\cmake\llvm -DBoost_INCLUDE_DIR=C:\Users\<path_to>\boost_1_86_0 -DABACI_USE_STD_FORMAT=1
+cmake.exe .. -A x64 -Thost=x64 -DLLVM_DIR=C:\Users\<path_to>\llvm-19.1.1\lib\cmake\llvm -DBoost_INCLUDE_DIR=C:\Users\<path_to>\boost_1_86_0 -DABACI_USE_STD_FORMAT=1 -DCMAKE_CXX_FLAGS="/MP /EHsc"
 ```
 
 Then load `Abaci.sln` into VS 2022 and select build type "Release" before building.
@@ -53,7 +53,7 @@ This project is currently under heavy development and should be considered pre-a
 
 * Broken parsing for method calls to be investigated *(completed)*
 * Homogeneous lists *(completed)*
-* String indexing
+* String indexing *(in progress)*
 * Closures (major changes are likely needed)
 * Error reporting tidied up *(completed)* with more accurate location reporting *(investigated and considered not possible)* 
 * Memory leaks closed *(completed)*
@@ -237,6 +237,8 @@ msbuild Abaci.sln -t:abacitests -p:Configuration=Release -m
 * **0.1.1** (2024-Oct-22): Seventh release with small syntax changes and unit testing capability
 
 * **0.1.2** (2024-Nov-12): Eighth release with integrated unit testing
+
+* **0.1.3** (2024-Nov-25): Ninth release with code improvements and some support for string indexing
 
 ## License
 
