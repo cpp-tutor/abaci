@@ -61,11 +61,8 @@ using abaci::ast::FunctionCall;
 using abaci::ast::ReturnStmt;
 using abaci::ast::ExprFunction;
 using abaci::ast::Class;
-using abaci::ast::DataAssignStmt;
 using abaci::ast::MethodCall;
 using abaci::ast::ExpressionStmt;
-using abaci::ast::ListAssignStmt;
-using abaci::ast::DataListAssignStmt;
 
 struct error_handler {
     template <typename Iterator, typename Exception, typename Context>
@@ -187,7 +184,7 @@ struct variable_class;
 struct this_ptr_class;
 struct list_items_class;
 struct empty_list_items_class;
-struct list_index_class;
+struct list_class;
 
 x3::rule<struct identifier_class, std::string> const identifier;
 x3::rule<struct variable_class, Variable> const variable;
@@ -218,7 +215,9 @@ struct print_items_class;
 struct print_stmt_class;
 struct let_items_class;
 struct let_stmt_class;
+struct assign_list_class;
 struct assign_items_class;
+struct this_assign_items_class;
 struct assign_stmt_class;
 struct if_items_class;
 struct if_stmt_class;
@@ -241,15 +240,9 @@ struct return_items_class;
 struct return_stmt_class;
 struct class_items_class;
 struct class_template_class;
-struct data_assign_items_class;
-struct this_assign_items_class;
-struct data_assign_stmt_class;
 struct method_call_items_class;
-struct list_assign_items_class;
-struct list_assign_stmt_class;
-struct this_list_assign_items_class;
-struct data_list_assign_items_class;
-struct data_list_assign_stmt_class;
+struct this_call_items_class;
+struct method_call_class;
 struct expression_stmt_items_class;
 struct expression_stmt_class;
 struct statement_class;
@@ -261,7 +254,9 @@ x3::rule<struct print_items_class, PrintStmt> const print_items;
 x3::rule<struct print_stmt_class, StmtNode> const print_stmt;
 x3::rule<struct let_items_class, InitStmt> const let_items;
 x3::rule<struct let_stmt_class, StmtNode> const let_stmt;
+x3::rule<struct assign_list_class, CallList> const assign_list;
 x3::rule<struct assign_items_class, AssignStmt> const assign_items;
+x3::rule<struct this_assign_items_class, AssignStmt> const this_assign_items;
 x3::rule<struct assign_stmt_class, StmtNode> const assign_stmt;
 x3::rule<struct if_items_class, IfStmt> const if_items;
 x3::rule<struct if_stmt_class, StmtNode> const if_stmt;
@@ -284,17 +279,9 @@ x3::rule<struct return_items_class, ReturnStmt> const return_items;
 x3::rule<struct return_stmt_class, StmtNode> const return_stmt;
 x3::rule<struct class_items_class, Class> const class_items;
 x3::rule<struct class_template_class, StmtNode> const class_template;
-x3::rule<struct data_assign_items_class, DataAssignStmt> const data_assign_items;
-x3::rule<struct data_assign_stmt_class, StmtNode> const data_assign_stmt;
 x3::rule<struct method_call_items_class, MethodCall> const method_call_items;
 x3::rule<struct this_call_items_class, MethodCall> const this_call_items;
 x3::rule<struct method_call_class, StmtNode> const method_call;
-x3::rule<struct this_assign_items_class, DataAssignStmt> const this_assign_items;
-x3::rule<struct list_assign_items_class, ListAssignStmt> const list_assign_items;
-x3::rule<struct list_assign_stmt_class, StmtNode> const list_assign_stmt;
-x3::rule<struct data_list_assign_items_class, DataAssignStmt> const data_list_assign_items;
-x3::rule<struct this_list_assign_items_class, DataAssignStmt> const this_list_assign_items;
-x3::rule<struct data_list_assign_stmt_class, StmtNode> const data_list_assign_stmt;
 x3::rule<struct expression_stmt_items_class, ExpressionStmt> const expression_stmt_items;
 x3::rule<struct expression_stmt_class, StmtNode> const expression_stmt;
 x3::rule<struct keywords, std::string> const keywords;
@@ -307,7 +294,9 @@ struct print_items_class : error_handler, x3::annotate_on_success {};
 struct print_stmt_class : error_handler, x3::annotate_on_success {};
 struct let_items_class : error_handler, x3::annotate_on_success {};
 struct let_stmt_class : error_handler, x3::annotate_on_success {};
+struct assign_list_class : error_handler, x3::annotate_on_success {};
 struct assign_items_class : error_handler, x3::annotate_on_success {};
+struct this_assign_items_class : error_handler, x3::annotate_on_success {};
 struct assign_stmt_class : error_handler, x3::annotate_on_success {};
 struct if_items_class : error_handler, x3::annotate_on_success {};
 struct if_stmt_class : error_handler, x3::annotate_on_success {};
@@ -330,15 +319,9 @@ struct return_items_class : error_handler, x3::annotate_on_success {};
 struct return_stmt_class : error_handler, x3::annotate_on_success {};
 struct class_items_class : error_handler, x3::annotate_on_success {};
 struct class_template_class : error_handler, x3::annotate_on_success {};
-struct data_assign_items_class : error_handler, x3::annotate_on_success {};
-struct this_assign_items_class : error_handler, x3::annotate_on_success {};
-struct data_assign_stmt_class : error_handler, x3::annotate_on_success {};
+struct this_call_items_class : error_handler, x3::annotate_on_success {};
 struct method_call_items_class : error_handler, x3::annotate_on_success {};
-struct list_assign_items_class : error_handler, x3::annotate_on_success {};
-struct list_assign_stmt_class : error_handler, x3::annotate_on_success {};
-struct this_list_assign_items_class : error_handler, x3::annotate_on_success {};
-struct data_list_assign_items_class : error_handler, x3::annotate_on_success {};
-struct data_list_assign_stmt_class : error_handler, x3::annotate_on_success {};
+struct method_call_class : error_handler, x3::annotate_on_success {};
 struct expression_stmt_items_class : error_handler, x3::annotate_on_success {};
 struct expression_stmt_class : error_handler, x3::annotate_on_success {};
 struct statement_class : error_handler, x3::annotate_on_success {};
@@ -530,9 +513,6 @@ const auto type_conversion_def = type_conversion_items[makeTypeConversion];
 const auto list_items_def = LEFT_BRACKET >> -( expression >> *( COMMA >> expression ) ) >> RIGHT_BRACKET;
 const auto empty_list_items_def = LEFT_BRACKET >> ( string(BOOL) | string(INT) | string(FLOAT) | string(COMPLEX) | string(STR) ) >> RIGHT_BRACKET;
 const auto list_def = list_items[makeList] | empty_list_items[makeEmptyList];
-const auto list_index_def = variable >> +(LEFT_BRACKET >> expression >> RIGHT_BRACKET);
-const auto data_list_index_def = variable >> +( DOT >> variable ) >> +( LEFT_BRACKET >> expression >> RIGHT_BRACKET );
-const auto this_list_index_def = this_ptr >> +( DOT >> variable ) >> +( LEFT_BRACKET >> expression >> RIGHT_BRACKET );
 
 const auto expression_def = logic_or[MakeNode<ExprNode::Boolean>()];
 const auto logic_or_def = logic_and_n >> *( logical_or > logic_and_n );
@@ -570,8 +550,10 @@ const auto print_items_def = -( expression >> -( ( comma | semicolon ) >> *( exp
 const auto print_stmt_def = PRINT >> print_items[MakeStmt<PrintStmt>()];
 const auto let_items_def = variable >> (equal | from) >> expression;
 const auto let_stmt_def = LET >> let_items[MakeStmt<InitStmt>()];
-const auto assign_items_def = variable >> FROM >> expression;
-const auto assign_stmt_def = assign_items[MakeStmt<AssignStmt>()];
+const auto assign_list_def = ( DOT >> variable ) | call_index;
+const auto assign_items_def = variable >> *assign_list >> FROM >> expression;
+const auto this_assign_items_def = this_ptr >> *assign_list >> FROM >> expression;
+const auto assign_stmt_def = this_assign_items[MakeStmt<AssignStmt>()] | assign_items[MakeStmt<AssignStmt>()];
 
 const auto if_items_def = expression > block > -( ELSE > block );
 const auto if_stmt_def = IF > if_items[MakeStmt<IfStmt>()] > ENDIF;
@@ -599,22 +581,15 @@ const auto return_stmt_def = RETURN > return_items[MakeStmt<ReturnStmt>()];
 
 const auto class_items_def = identifier > function_parameters >> *(FN > function_items > ENDFN);
 const auto class_template_def = CLASS > class_items[MakeStmt<Class>()] > ENDCLASS;
-const auto data_assign_items_def = variable >> +( DOT >> variable ) >> FROM > expression;
-const auto this_assign_items_def = this_ptr >> +( DOT >> variable ) >> FROM > expression;
-const auto data_assign_stmt_def = this_assign_items[MakeStmt<DataAssignStmt>()] | data_assign_items[MakeStmt<DataAssignStmt>()];
+
 const auto this_call_items_def = this_ptr >> DOT >> *( variable >> DOT ) >> identifier >> call_args;
 const auto method_call_items_def = variable >> DOT >> *( variable >> DOT ) >> identifier >> call_args;
 const auto method_call_def = this_call_items[MakeStmt<MethodCall>()] | method_call_items[MakeStmt<MethodCall>()];
-const auto list_assign_items_def = variable >> +( LEFT_BRACKET >> expression >> RIGHT_BRACKET ) >> FROM >> expression;
-const auto list_assign_stmt_def = list_assign_items[MakeStmt<ListAssignStmt>()];
-const auto data_list_assign_items_def = variable >> +( DOT >> variable ) >> +( LEFT_BRACKET >> expression >> RIGHT_BRACKET ) >> FROM >> expression;
-const auto this_list_assign_items_def = this_ptr >> +( DOT >> variable ) >> +( LEFT_BRACKET >> expression >> RIGHT_BRACKET ) >> FROM >> expression;
-const auto data_list_assign_stmt_def = this_list_assign_items[MakeStmt<DataListAssignStmt>()] | data_list_assign_items[MakeStmt<DataListAssignStmt>()];
 
 const auto expression_stmt_items_def = expression;
 const auto expression_stmt_def = expression_stmt_items[MakeStmt<ExpressionStmt>()];
 
-const auto statement_def = data_assign_stmt | method_call | assign_stmt | list_assign_stmt | function_call | print_stmt | expression_function | let_stmt | if_stmt | while_stmt | repeat_stmt | case_stmt | return_stmt | function | class_template | expression_stmt | comment;
+const auto statement_def = assign_stmt | print_stmt | expression_function | let_stmt | if_stmt | while_stmt | repeat_stmt | case_stmt | return_stmt | function | class_template | method_call | function_call | expression_stmt | comment;
 const auto block_def = *statement;
 
 BOOST_SPIRIT_DEFINE(number_str, base_number_str, boolean_str, string_str, value)
@@ -628,15 +603,14 @@ BOOST_SPIRIT_DEFINE(expression, logic_or, logic_and, logic_and_n,
     term, term_n, factor, factor_n, unary, unary_n, index, index_n, primary_n)
 BOOST_SPIRIT_DEFINE(identifier, variable, function_value_call,
     call_index, call_function, call_list, this_call, multi_call, user_input, type_conversion_items, type_conversion, keywords,
-    list_items, empty_list_items, list, list_assign_items, list_assign_stmt,
+    list_items, empty_list_items, list,
     comment_items, comment, print_items, print_stmt,
-    let_items, let_stmt, assign_items, assign_stmt, if_items, if_stmt,
+    let_items, let_stmt, assign_list, assign_items, assign_stmt, if_items, if_stmt,
     when_items, while_items, while_stmt, repeat_items, repeat_stmt, case_items, case_stmt,
     function_parameters, function_items, function, call_args, call_items, function_call,
     expression_function_items, expression_function,
-    return_items, return_stmt, class_items, class_template, data_assign_items, data_assign_stmt,
+    return_items, return_stmt, class_items, class_template,
     this_ptr, this_assign_items, this_call_items,
-    data_list_assign_items, this_list_assign_items, data_list_assign_stmt,
     method_call_items, method_call, expression_stmt_items, expression_stmt, statement, block)
 
 bool parseBlock(const std::string& block_str, StmtList& ast, std::ostream& error, std::string::const_iterator& iter, Constants *constants) {

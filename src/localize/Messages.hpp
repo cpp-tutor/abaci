@@ -34,7 +34,7 @@ MESSAGE(NoJITFunction, "JIT function not found.");
 
 MESSAGE(NoAssignObject, "Cannot assign objects.");
 MESSAGE(CallableNotExist, "No function or class called \'{}\'.");
-MESSAGE(BadObject, "Not an object.");
+MESSAGE(BadObject, "Variable \'{}\' is not an object.");
 MESSAGE(BadConvSource, "Bad source conversion type.");
 MESSAGE(BadAssociation, "Unknown association type.");
 MESSAGE(BadCoerceTypes, "Incompatible types.");
@@ -70,9 +70,9 @@ MESSAGE(ErrorAtLine, "Error at line {}: ");
 MESSAGE(EmptyListNeedsType, "An empty list must be given an element type.");
 MESSAGE(ListTypeMismatch, "Mismatching types for list elements (\'{}\' and \'{}\').");
 MESSAGE(VariableNotList, "Variable \'{}\' is not a list or a string.");
-MESSAGE(IndexNotInt, "List index must be of integer type.");
-MESSAGE(TooManyIndexes, "Too many subscripts for \'{}\'.");
-MESSAGE(ListAssignMismatch, "Mismatching types for list element assignment (\'{}\' and \'{}\').");
+MESSAGE(IndexNotInt, "Index to \'{}\' must be of integer type.");
+MESSAGE(TooManyIndexes, "Cannot get subscript of \'{}\'.");
+MESSAGE(AssignMismatch, "Mismatching types for element assignment (\'{}\' and \'{}\').");
 MESSAGE(IncompatibleTypes, "Types \'{}\' and \'{}\' are incompatible.");
 
 #endif

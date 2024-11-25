@@ -61,6 +61,7 @@ struct InitStmt : StmtData {
 
 struct AssignStmt : StmtData {
     Variable name;
+    std::vector<CallList> calls;
     ExprNode value;
 };
 
@@ -125,12 +126,6 @@ struct Class : StmtData {
     FunctionList methods;    
 };
 
-struct DataAssignStmt : StmtData {
-    Variable name;
-    std::vector<Variable> memberList;
-    ExprNode value;
-};
-
 struct MethodCall : StmtData {
     Variable name;
     std::vector<Variable> memberList;
@@ -150,19 +145,6 @@ struct ListInitStmt : StmtData {
     ExprList otherElements;
 };
 
-struct ListAssignStmt : StmtData {
-    Variable name;
-    ExprList indexes;
-    ExprNode value;
-};
-
-struct DataListAssignStmt : StmtData {
-    Variable name;
-    std::vector<Variable> memberList;
-    ExprList indexes;
-    ExprNode value;
-};
-
 } // namespace abaci::ast
 
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::CommentStmt, commentString)
@@ -172,7 +154,7 @@ BOOST_FUSION_ADAPT_STRUCT(abaci::ast::PrintStmt, expression, separator, format)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::PrintStmt, expression, format)
 #endif
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::InitStmt, name, assign, value)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::AssignStmt, name, value)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::AssignStmt, name, calls, value)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::IfStmt, condition, trueBlock, falseBlock)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::WhileStmt, condition, loopBlock)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::RepeatStmt, loopBlock, condition)
@@ -183,12 +165,9 @@ BOOST_FUSION_ADAPT_STRUCT(abaci::ast::FunctionCall, name, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ReturnStmt, expression)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExprFunction, name, parameters, expression)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Class, name, variables, methods)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataAssignStmt, name, memberList, value)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodCall, name, memberList, method, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExpressionStmt, expression)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListInitStmt, name, assign, type, firstElement, otherElements)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListAssignStmt, name, indexes, value)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::DataListAssignStmt, name, memberList, indexes, value)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::StmtList, statements)
 
 #endif

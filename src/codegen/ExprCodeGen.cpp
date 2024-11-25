@@ -775,12 +775,15 @@ void ExprCodeGen::codeGen(const MultiCall& call) const {
             value = { loadGlobalValue(jit, globalIndex, type), type };
         }
     }
+    if (type == AbaciValue::Unset) {
+        UnexpectedError1(VariableNotExist, name);
+    }
     for (const auto& callElement : call.calls) {
         switch (callElement.call.index()) {
             case CallList::TypeVariable: {
                 const auto& callVariable = std::get<Variable>(callElement.call);
                 if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
-                    UnexpectedError0(BadObject);
+                    UnexpectedError1(BadObject, name);
                 }
                 auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
                 Assert(instanceType != nullptr);
@@ -804,13 +807,14 @@ void ExprCodeGen::codeGen(const MultiCall& call) const {
                     UnexpectedError1(VariableNotList, name);
                 }
                 for (const auto& indexExpression : callIndexes) {
+                    name += "[]";
                     if (typePtr == nullptr && typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
                         UnexpectedError1(TooManyIndexes, name);
                     }
                     ExprCodeGen expr(jit, locals, temps);
                     expr(indexExpression);
                     if (typeToScalar(expr.get().second) != AbaciValue::Integer) {
-                        UnexpectedError0(IndexNotInt);
+                        UnexpectedError1(IndexNotInt, name);
                     }
                     if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
                         Value *index = expr.get().first;
@@ -841,7 +845,7 @@ void ExprCodeGen::codeGen(const MultiCall& call) const {
             case CallList::TypeFunction: {
                 const auto& callMethod = std::get<FunctionValueCall>(callElement.call);
                 if (typeToScalar(removeConstFromType(type)) != AbaciValue::Instance) {
-                    LogicError0(BadObject);
+                    UnexpectedError1(BadObject, name);
                 }
                 auto instanceType = std::dynamic_pointer_cast<TypeInstance>(std::get<std::shared_ptr<TypeBase>>(type));
                 Assert(instanceType != nullptr);
@@ -867,12 +871,7 @@ void ExprCodeGen::codeGen(const MultiCall& call) const {
                 UnexpectedError0(BadCall);
         }
     }
-    if (type == AbaciValue::Unset) {
-        UnexpectedError1(VariableNotExist, name);
-    }
-    else {
-        push(value);
-    }
+    push(value);
 }
 
 void ExprCodeGen::operator()(const ExprNode& node) const {
