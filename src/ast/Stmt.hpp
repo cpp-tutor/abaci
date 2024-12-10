@@ -24,28 +24,13 @@ struct StmtList : LocalSymbols, Temporaries {
 
 using abaci::utility::Operator;
 
-struct StmtData : position_tagged {
-    virtual ~StmtData() {}
-};
-
-class StmtNode {
-public:
-    StmtNode() = default;
-    StmtNode(const StmtNode&) = default;
-    StmtNode& operator=(const StmtNode&) = default;
-    StmtNode(StmtData *nodeImpl) { data.reset(nodeImpl); }
-    const StmtData *get() const { return data.get(); }
-private:
-    std::shared_ptr<StmtData> data;
-};
-
-struct CommentStmt : StmtData {
+struct CommentStmt {
     std::string commentString;
 };
 
 using PrintList = std::vector<std::variant<ExprNode,Operator>>;
 
-struct PrintStmt : StmtData {
+struct PrintStmt {
     ExprNode expression;
 #ifdef ABACI_USE_OLDER_BOOST
     Operator separator;
@@ -53,30 +38,30 @@ struct PrintStmt : StmtData {
     ExprList format;
 };
 
-struct InitStmt : StmtData {
+struct InitStmt {
     Variable name;
     Operator assign;
     ExprNode value;
 };
 
-struct AssignStmt : StmtData {
+struct AssignStmt {
     Variable name;
     std::vector<CallList> calls;
     ExprNode value;
 };
 
-struct IfStmt : StmtData {
+struct IfStmt {
     ExprNode condition;
     StmtList trueBlock;
     StmtList falseBlock;
 };
 
-struct WhileStmt : StmtData {
+struct WhileStmt {
     ExprNode condition;
     StmtList loopBlock;
 };
 
-struct RepeatStmt : StmtData {
+struct RepeatStmt {
     StmtList loopBlock;
     ExprNode condition;
 };
@@ -89,30 +74,30 @@ struct WhenStmt {
 
 using WhenList = std::vector<WhenStmt>;
 
-struct CaseStmt : StmtData {
+struct CaseStmt {
     ExprNode caseValue;
     WhenList matches;
     StmtList unmatched;
 };
 
-struct Function : StmtData {
+struct Function {
     std::string name;
     std::vector<Variable> parameters;
     StmtList functionBody;
 };
 
-struct FunctionCall : StmtData {
+struct FunctionCall {
     std::string name;
     ExprList args;
 };
 
-struct ReturnStmt : StmtData {
+struct ReturnStmt {
     ReturnStmt() = default;
     explicit ReturnStmt(const ExprNode& expression) : expression{ expression } {}
     ExprNode expression;
 };
 
-struct ExprFunction : StmtData {
+struct ExprFunction {
     std::string name;
     std::vector<Variable> parameters;
     ExprNode expression;
@@ -120,29 +105,25 @@ struct ExprFunction : StmtData {
 
 using FunctionList = std::vector<Function>;
 
-struct Class : StmtData {
+struct Class {
     std::string name;
     std::vector<Variable> variables;
     FunctionList methods;    
 };
 
-struct MethodCall : StmtData {
+struct MethodCall {
     Variable name;
     std::vector<Variable> memberList;
     std::string method;
     ExprList args;
 };
 
-struct ExpressionStmt : StmtData {
+struct ExpressionStmt {
     ExprNode expression;
 };
 
-struct ListInitStmt : StmtData {
-    Variable name;
-    Operator assign;
-    std::string type;
-    ExprNode firstElement;
-    ExprList otherElements;
+struct StmtNode {
+    std::variant<CommentStmt,PrintStmt,InitStmt,AssignStmt,IfStmt,WhileStmt,RepeatStmt,CaseStmt,Function,FunctionCall,ReturnStmt,ExprFunction,Class,MethodCall,ExpressionStmt> data;
 };
 
 } // namespace abaci::ast
@@ -167,7 +148,6 @@ BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExprFunction, name, parameters, expression
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Class, name, variables, methods)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodCall, name, memberList, method, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExpressionStmt, expression)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListInitStmt, name, assign, type, firstElement, otherElements)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::StmtList, statements)
 
 #endif

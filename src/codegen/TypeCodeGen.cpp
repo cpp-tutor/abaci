@@ -564,7 +564,7 @@ void TypeCodeGen::operator()(const abaci::ast::StmtList& stmts) const {
         Assert(locals->size() == 0);
         locals->setEnclosing(enclosing);
         for (const auto& stmt : stmts.statements) {
-            if (dynamic_cast<const ReturnStmt*>(stmt.get()) && &stmt != &stmts.statements.back()) {
+            if (std::holds_alternative<ReturnStmt>(stmt.data) && &stmt != &stmts.statements.back()) {
                 LogicError0(ReturnAtEnd);
             }
             (*this)(stmt);
@@ -824,7 +824,7 @@ void TypeCodeGen::codeGen(const ReturnStmt& returnStmt) const {
 template<>
 void TypeCodeGen::codeGen(const ExprFunction& expressionFunction) const {
     StmtList functionBody;
-    functionBody.statements.emplace_back(new ReturnStmt{ expressionFunction.expression });
+    functionBody.statements.emplace_back(ReturnStmt{ expressionFunction.expression });
     cache->addFunctionTemplate(expressionFunction.name, expressionFunction.parameters, functionBody);
 }
 
@@ -910,55 +910,9 @@ void TypeCodeGen::codeGen([[maybe_unused]] const ExpressionStmt& expressionStmt)
 }
 
 void TypeCodeGen::operator()(const StmtNode& stmt) const {
-    const auto *stmtData = stmt.get();
-    if (dynamic_cast<const CommentStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const CommentStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const PrintStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const PrintStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const InitStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const InitStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const AssignStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const AssignStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const IfStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const IfStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const WhileStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const WhileStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const RepeatStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const RepeatStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const CaseStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const CaseStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const Function*>(stmtData)) {
-        codeGen(dynamic_cast<const Function&>(*stmtData));
-    }
-    else if (dynamic_cast<const FunctionCall*>(stmtData)) {
-        codeGen(dynamic_cast<const FunctionCall&>(*stmtData));
-    }
-    else if (dynamic_cast<const ReturnStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const ReturnStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const ExprFunction*>(stmtData)) {
-        codeGen(dynamic_cast<const ExprFunction&>(*stmtData));
-    }
-    else if (dynamic_cast<const Class*>(stmtData)) {
-        codeGen(dynamic_cast<const Class&>(*stmtData));
-    }
-    else if (dynamic_cast<const MethodCall*>(stmtData)) {
-        codeGen(dynamic_cast<const MethodCall&>(*stmtData));
-    }
-    else if (dynamic_cast<const ExpressionStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const ExpressionStmt&>(*stmtData));
-    }
-    else {
-        UnexpectedError0(BadStmtNode);
-    }
+    std::visit([this](const auto& nodeType){
+        this->codeGen(nodeType);
+    }, stmt.data);
 }
 
 } // namespace abaci::codegen

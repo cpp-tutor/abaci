@@ -439,7 +439,7 @@ template<typename T>
 struct MakeStmt {
     template<typename Context>
     void operator()(Context& ctx) {
-        _val(ctx) = StmtNode(new T(std::move(_attr(ctx))));
+        _val(ctx).data = _attr(ctx);
     }
 };
 

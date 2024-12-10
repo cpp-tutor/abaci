@@ -56,7 +56,7 @@ void StmtCodeGen::operator()(const StmtList& stmts, BasicBlock *exitBlock) const
         for (const auto& stmt : stmts.statements) {
             (*this)(stmt);
         }
-        if (!dynamic_cast<const ReturnStmt*>(stmts.statements.back().get())) {
+        if (!std::holds_alternative<ReturnStmt>(stmts.statements.back().data)) {
             temps->destroyTemporaries(jit);
             locals->destroyVariables(jit);
             if (exitBlock) {
@@ -239,7 +239,6 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
         UnexpectedError1(NoConstantAssign, assign.name.name);
     }
     for (const auto& callElement : assign.calls) {
-        parent = value;
         switch (callElement.call.index()) {
             case CallList::TypeVariable: {
                 const auto& callVariable = std::get<Variable>(callElement.call);
@@ -253,6 +252,7 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
                 ArrayType *array = ArrayType::get(builder.getInt64Ty(), instanceType->variableTypes.size());
                 Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.Instance"), value.first, 2));
                 valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
+                parent = value;
                 value = { builder.CreateLoad(typeToLLVMType(jit, type), valuePtr), type };
                 name += '.' + callVariable.name;
                 break;
@@ -284,6 +284,7 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
                         Value *listElements = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), value.first, 1));
                         valuePtr = builder.CreateGEP(array, listElements, { builder.getInt32(0), index });
                         type = typePtr->elementType;
+                        parent = value;
                         value = { builder.CreateLoad(typeToLLVMType(jit, type), valuePtr), type };
                         if (std::holds_alternative<std::shared_ptr<TypeBase>>(type)) {
                             typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
@@ -297,6 +298,7 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
                             UnexpectedError1(TooManyIndexes, name);
                         }
                         index = expr.get().first;
+                        parent = value;
                         value = { builder.CreateCall(module.getFunction("indexString"), { value.first, index }), AbaciValue::String };
                         temps->addTemporary(value);
                     }
@@ -647,55 +649,9 @@ void StmtCodeGen::codeGen([[maybe_unused]] const ExpressionStmt& expressionStmt)
 }
 
 void StmtCodeGen::operator()(const StmtNode& stmt) const {
-    const auto *stmtData = stmt.get();
-    if (dynamic_cast<const CommentStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const CommentStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const PrintStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const PrintStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const InitStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const InitStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const AssignStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const AssignStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const IfStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const IfStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const WhileStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const WhileStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const RepeatStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const RepeatStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const CaseStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const CaseStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const Function*>(stmtData)) {
-        codeGen(dynamic_cast<const Function&>(*stmtData));
-    }
-    else if (dynamic_cast<const FunctionCall*>(stmtData)) {
-        codeGen(dynamic_cast<const FunctionCall&>(*stmtData));
-    }
-    else if (dynamic_cast<const ReturnStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const ReturnStmt&>(*stmtData));
-    }
-    else if (dynamic_cast<const ExprFunction*>(stmtData)) {
-        codeGen(dynamic_cast<const ExprFunction&>(*stmtData));
-    }
-    else if (dynamic_cast<const Class*>(stmtData)) {
-        codeGen(dynamic_cast<const Class&>(*stmtData));
-    }
-    else if (dynamic_cast<const MethodCall*>(stmtData)) {
-        codeGen(dynamic_cast<const MethodCall&>(*stmtData));
-    }
-    else if (dynamic_cast<const ExpressionStmt*>(stmtData)) {
-        codeGen(dynamic_cast<const ExpressionStmt&>(*stmtData));
-    }
-    else {
-        UnexpectedError0(BadStmtNode);
-    }
+    std::visit([this](const auto& nodeType){
+        this->codeGen(nodeType);
+    }, stmt.data);
 }
 
 } // namespace abaci::codegen

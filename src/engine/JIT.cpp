@@ -144,7 +144,7 @@ void JIT::initialize() {
         }
         StmtCodeGen stmt(*this, nullptr, &parameters, exitBlock);
         stmt(cacheFunction.body);
-        if (cacheFunction.body.statements.empty() || !dynamic_cast<const ReturnStmt*>(cacheFunction.body.statements.back().get())) {
+        if (cacheFunction.body.statements.empty() || !std::holds_alternative<ReturnStmt>(cacheFunction.body.statements.back().data)) {
             builder.CreateBr(exitBlock);
         }
         exitBlock->insertInto(currentFunction);
