@@ -53,7 +53,7 @@ This project is currently under heavy development and should be considered pre-a
 
 * Broken parsing for method calls to be investigated *(completed)*
 * Homogeneous lists *(completed)*
-* String indexing *(in progress)*
+* String indexing *(completed)*
 * Closures (major changes are likely needed)
 * Error reporting tidied up *(completed)* with more accurate location reporting *(investigated and considered not possible)* 
 * Memory leaks closed *(completed)*
@@ -91,7 +91,7 @@ let c <- mytuple(1, 2.2, "hi")
 print c.z
 ```
 
-Array assignment (not yet implemented)
+Array and string assignment
 
 ```
 let d = [ 2, 3, 5, 7, 11 ]
@@ -100,6 +100,11 @@ print d[3]
 d[3] <- nil
 print !d
 print d[3]
+let s <- "123456"
+s[1] <- nil
+print s
+s[0] <- "88"
+print s
 ```
 
 Math operators
@@ -239,6 +244,8 @@ msbuild Abaci.sln -t:abacitests -p:Configuration=Release -m
 * **0.1.2** (2024-Nov-12): Eighth release with integrated unit testing
 
 * **0.1.3** (2024-Nov-25): Ninth release with code improvements and some support for string indexing
+
+* **0.1.4** (2024-Dec-21): Tenth release with full support for string indexing
 
 ## License
 
