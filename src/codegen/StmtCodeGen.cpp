@@ -314,11 +314,11 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
     auto result = expr.get();
     if (!assign.calls.empty() && assign.calls.back().call.index() == CallList::TypeIndexes) {
         if (type != result.second && result.second != AbaciValue::None) {
-            LogicError1(AssignMismatch, name);
+            UnexpectedError1(AssignMismatch, name);
         }
     }
     else if (type != result.second) {
-        LogicError1(VariableType, name);
+        UnexpectedError1(VariableType, name);
     }
     if (assign.calls.empty()) {
         if (locals) {

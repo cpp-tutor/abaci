@@ -16,7 +16,7 @@ using abaci::utility::LocalSymbols;
 using abaci::utility::Temporaries;
 using boost::spirit::x3::position_tagged;
 
-class StmtNode;
+struct StmtNode;
 
 struct StmtList : LocalSymbols, Temporaries {
     std::vector<StmtNode> statements;
@@ -123,6 +123,9 @@ struct ExpressionStmt {
 };
 
 struct StmtNode {
+    StmtNode() = default;
+    template<typename T>
+    explicit StmtNode(const T& data) : data{ data } {} 
     std::variant<CommentStmt,PrintStmt,InitStmt,AssignStmt,IfStmt,WhileStmt,RepeatStmt,CaseStmt,Function,FunctionCall,ReturnStmt,ExprFunction,Class,MethodCall,ExpressionStmt> data;
 };
 

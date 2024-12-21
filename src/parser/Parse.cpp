@@ -510,7 +510,7 @@ const auto user_input_def = lit(INPUT);
 const auto type_conversion_items_def = ( string(INT) | string(FLOAT) | string(COMPLEX) | string(STR)
     | string(REAL) | string(IMAG) ) >> LEFT_PAREN >> expression >> RIGHT_PAREN;
 const auto type_conversion_def = type_conversion_items[makeTypeConversion];
-const auto list_items_def = LEFT_BRACKET >> -( expression >> *( COMMA >> expression ) ) >> RIGHT_BRACKET;
+const auto list_items_def = LEFT_BRACKET >> expression >> *( COMMA >> expression ) >> RIGHT_BRACKET;
 const auto empty_list_items_def = LEFT_BRACKET >> ( string(BOOL) | string(INT) | string(FLOAT) | string(COMPLEX) | string(STR) ) >> RIGHT_BRACKET;
 const auto list_def = list_items[makeList] | empty_list_items[makeEmptyList];
 
