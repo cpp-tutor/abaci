@@ -382,7 +382,14 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
             }
         }
         else if (typeToScalar(removeConstFromType(parent.second)) == AbaciValue::String) {
-            UnexpectedError0(NotImplemented);
+            if (result.second != AbaciValue::None) {
+                Value *endIndex = builder.CreateAdd(index, builder.getInt64(1));
+                builder.CreateCall(module.getFunction("spliceString"), { parent.first, index, endIndex, result.first });
+            }
+            else {
+                Value *endIndex = builder.CreateAdd(index, builder.getInt64(1));
+                builder.CreateCall(module.getFunction("spliceString"), { parent.first, index, endIndex, ConstantPointerNull::get(PointerType::get(jit.getNamedType("struct.String"), 0)) });
+            }
         }
         else {
             UnexpectedError0(BadType);

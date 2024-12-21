@@ -132,6 +132,27 @@ String *indexString(String *object, std::size_t index) {
     return makeString(object->ptr + index, 1);
 }
 
+void spliceString(String *object, std::size_t start, std::size_t end, String *splice) {
+    if (splice == nullptr) {
+        memmove(object->ptr + start, object->ptr + end, object->length - end);
+        object->length -= end - start;
+    }
+    else if (end - start >= splice->length) {
+        memcpy(object->ptr + start, splice->ptr, splice->length);
+        memmove(object->ptr + start + splice->length, object->ptr + end, object->length - end);
+        object->length += -(end - start) + splice->length;
+    }
+    else {
+        auto *str = new char8_t[object->length - (end - start) + splice->length];
+        memcpy(str, object->ptr, start);
+        memcpy(str + start, splice->ptr, splice->length);
+        memcpy(str + start + splice->length, object->ptr + end, object->length - end);
+        delete[] object->ptr;
+        object->ptr = str;
+        object->length += -(end - start) + splice->length;
+    }
+}
+
 Complex *opComplex(Operator op, Complex *operand1, Complex *operand2) {
     std::complex<double> a(operand1->real, operand1->imag), b, r;
     if (operand2 != nullptr) {
