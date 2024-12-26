@@ -74,5 +74,6 @@ MESSAGE(IndexNotInt, "Index to \'{}\' must be of integer type.");
 MESSAGE(TooManyIndexes, "Cannot get subscript of \'{}\'.");
 MESSAGE(AssignMismatch, "Mismatching types for element assignment (\'{}\' and \'{}\').");
 MESSAGE(IncompatibleTypes, "Types \'{}\' and \'{}\' are incompatible.");
+MESSAGE(IndexOutOfRange, "Index \'{}\' is not within range for object size of \'{}\'.");
 
 #endif

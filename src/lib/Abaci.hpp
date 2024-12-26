@@ -35,6 +35,7 @@ bool compareString(String *str1, String *str2);
 String *concatString(String *str1, String *str2);
 String *indexString(String *object, std::size_t index);
 void spliceString(String *object, std::size_t start, std::size_t end, String *splice);
+std::size_t validIndex(int64_t index, std::size_t limit);
 Complex *opComplex(Operator op, Complex *operand1, Complex *operand2);
 void deleteElement(List *object, std::size_t element);
 

@@ -128,7 +128,16 @@ String *concatString(String *str1, String *str2) {
     return object;
 }
 
+std::size_t validIndex(int64_t index, std::size_t limit) {
+    std::size_t positiveIndex = (index >= 0) ? index : limit + index;
+    if (positiveIndex >= limit) {
+        LogicError2(IndexOutOfRange, index, limit);
+    }
+    return positiveIndex;
+}
+
 String *indexString(String *object, std::size_t index) {
+    index = validIndex(index, object->length);
     return makeString(object->ptr + index, 1);
 }
 

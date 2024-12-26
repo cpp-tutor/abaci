@@ -819,6 +819,7 @@ void ExprCodeGen::codeGen(const MultiCall& call) const {
                     if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
                         Value *index = expr.get().first;
                         Value *listSize = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.List"), value.first, 0));
+                        index = builder.CreateCall(module.getFunction("validIndex"), { index, listSize });
                         ArrayType *array = ArrayType::get(builder.getInt64Ty(), 0);
                         Value *listElements = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), value.first, 1));
                         Value *elementPtr = builder.CreateGEP(array, listElements, { builder.getInt32(0), index });
