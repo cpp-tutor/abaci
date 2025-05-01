@@ -20,7 +20,7 @@ struct Complex {
 
 struct String {
     char8_t *ptr;
-    std::size_t length;
+    std::size_t utf8Length, length;
 };
 
 struct Instance {

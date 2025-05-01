@@ -56,7 +56,7 @@ MESSAGE(InitialPrompt, "Abaci version {}\nEnter code, or \"{}\" to end:\n> ");
 MESSAGE(InputPrompt, "> ");
 MESSAGE(ContinuationPrompt, ". ");
 MESSAGE(SyntaxError, "Unrecognized input.");
-MESSAGE(Version, "0.1.4 (2024-Dec-21)");
+MESSAGE(Version, "0.1.5 (2025-May-01)");
 
 MESSAGE(BadVariableIndex, "Bad index of variable.");
 MESSAGE(BadTemporary, "Bad temporary.");
@@ -75,5 +75,6 @@ MESSAGE(TooManyIndexes, "Cannot get subscript of \'{}\'.");
 MESSAGE(AssignMismatch, "Mismatching types for element assignment (\'{}\' and \'{}\').");
 MESSAGE(IncompatibleTypes, "Types \'{}\' and \'{}\' are incompatible.");
 MESSAGE(IndexOutOfRange, "Index \'{}\' is not within range for object size of \'{}\'.");
+MESSAGE(BadString, "Illegal character in string at position {}.");
 
 #endif

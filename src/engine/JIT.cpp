@@ -42,7 +42,7 @@ void JIT::initialize() {
     StructType *complexType = StructType::create(*context, "struct.Complex");
     complexType->setBody({ builder.getDoubleTy(), builder.getDoubleTy() });
     StructType *stringType = StructType::create(*context, "struct.String");
-    stringType->setBody({ PointerType::get(builder.getInt8Ty(), 0), builder.getInt64Ty() });
+    stringType->setBody({ PointerType::get(builder.getInt8Ty(), 0), builder.getInt64Ty(), builder.getInt64Ty() });
     StructType *instanceType = StructType::create(*context, "struct.Instance");
     instanceType->setBody({ PointerType::get(builder.getInt8Ty(), 0), builder.getInt64Ty(), PointerType::get(abaciValueType, 0) });
     StructType *listType = StructType::create(*context, "struct.List");

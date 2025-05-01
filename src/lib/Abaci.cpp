@@ -19,6 +19,9 @@ namespace abaci::lib {
 
 using abaci::utility::AbaciValue;
 
+static std::size_t utf8StrLen(const char8_t *str, std::size_t sz);
+static const char8_t *utf8StrPos(const char8_t *str, std::size_t index);
+
 Complex *makeComplex(double real, double imag) {
     auto *object = new Complex{};
     object->real = real;
@@ -30,6 +33,7 @@ String *makeString(char8_t *str, std::size_t length) {
     auto *object = new String{};
     object->ptr = new char8_t[length];
     memcpy(object->ptr, str, length);
+    object->utf8Length = utf8StrLen(str, length);
     object->length = length;
     return object;
 }
@@ -64,6 +68,7 @@ String *cloneString(String *existing) {
     auto *object = new String{};
     object->ptr = new char8_t[existing->length];
     memcpy(object->ptr, existing->ptr, existing->length);
+    object->utf8Length = existing->utf8Length;
     object->length = existing->length;
     return object;
 }
@@ -121,6 +126,7 @@ bool compareString(String *str1, String *str2) {
 
 String *concatString(String *str1, String *str2) {
     auto *object = new String{};
+    object->utf8Length = str1->utf8Length + str2->utf8Length;
     object->length = str1->length + str2->length;
     object->ptr = new char8_t[object->length];
     memcpy(object->ptr, str1->ptr, str1->length);
@@ -137,28 +143,34 @@ std::size_t validIndex(int64_t index, std::size_t limit) {
 }
 
 String *indexString(String *object, std::size_t index) {
-    index = validIndex(index, object->length);
-    return makeString(object->ptr + index, 1);
+    index = validIndex(index, object->utf8Length);
+    const char8_t *pos1 = utf8StrPos(object->ptr, index), *pos2 = utf8StrPos(pos1, 1);
+    return makeString(const_cast<char8_t*>(pos1), static_cast<std::size_t>(pos2 - pos1));
 }
 
 void spliceString(String *object, std::size_t start, std::size_t end, String *splice) {
+    const char8_t *pos1 = utf8StrPos(object->ptr, start), *pos2 = utf8StrPos(pos1, end - start);
+    std::size_t rawStart = pos1 - object->ptr, rawEnd = pos2 - object->ptr;
     if (splice == nullptr) {
-        memmove(object->ptr + start, object->ptr + end, object->length - end);
-        object->length -= end - start;
+        memmove(const_cast<char8_t*>(pos1), pos2, object->length - static_cast<std::size_t>(pos2 - pos1));
+        object->utf8Length -= end - start;
+        object->length -= rawEnd - rawStart;
     }
-    else if (end - start >= splice->length) {
-        memcpy(object->ptr + start, splice->ptr, splice->length);
-        memmove(object->ptr + start + splice->length, object->ptr + end, object->length - end);
-        object->length += -(end - start) + splice->length;
+    else if ((rawEnd - rawStart) >= splice->length) {
+        memcpy(const_cast<char8_t*>(pos1), splice->ptr, splice->length);
+        memmove(const_cast<char8_t*>(pos1) + splice->length, pos2, object->length - rawEnd);
+        object->utf8Length += -(end - start) + splice->utf8Length;
+        object->length += -(rawEnd - rawStart) + splice->length;
     }
     else {
-        auto *str = new char8_t[object->length - (end - start) + splice->length];
-        memcpy(str, object->ptr, start);
-        memcpy(str + start, splice->ptr, splice->length);
-        memcpy(str + start + splice->length, object->ptr + end, object->length - end);
+        auto *str = new char8_t[object->length - (rawEnd - rawStart) + splice->length];
+        memcpy(str, object->ptr, rawStart);
+        memcpy(str + rawStart, splice->ptr, splice->length);
+        memcpy(str + rawStart + splice->length, pos2, object->length - rawEnd);
         delete[] object->ptr;
         object->ptr = str;
-        object->length += -(end - start) + splice->length;
+        object->utf8Length += -(end - start) + splice->utf8Length;
+        object->length += -(rawEnd - rawStart) + splice->length;
     }
 }
 
@@ -488,5 +500,66 @@ void printLn(Context *ctx) {
 #endif
     (*(ctx->output), "{}", '\n');
 }
+
+static std::size_t utf8StrLen(const char8_t *str, std::size_t sz) {
+    std::size_t length{};
+    const char8_t *ptr = str;
+    while (ptr < (str + static_cast<ptrdiff_t>(sz))) {
+        if (*ptr < 0b10000000) {
+            ++length;
+            ++ptr;
+        }
+        else if (*ptr < 0b11000000) {
+            UnexpectedError1(BadString, ptr - str);
+        }
+        else if (*ptr < 0b11100000) {
+            ++length;
+            ptr += 2;
+        }
+        else if (*ptr < 0b11110000) {
+            ++length;
+            ptr += 3;
+        }
+        else if (*ptr < 0b11111000) {
+            ++length;
+            ptr += 4;
+        }
+        else {
+            UnexpectedError1(BadString, ptr - str);
+        }
+    }
+    return length;
+}
+
+static const char8_t *utf8StrPos(const char8_t *str, std::size_t index) {
+    const char8_t *pos = str;
+    std::size_t ch{};
+    while (ch < index) {
+        if (*pos < 0b10000000) {
+            ++ch;
+            ++pos;
+        }
+        else if (*pos < 0b11000000) {
+            UnexpectedError1(BadString, pos - str);
+        }
+        else if (*pos < 0b11100000) {
+            ++ch;
+            pos += 2;
+        }
+        else if (*pos < 0b11110000) {
+            ++ch;
+            pos += 3;
+        }
+        else if (*pos < 0b11111000) {
+            ++ch;
+            pos += 4;
+        }
+        else {
+            UnexpectedError1(BadString, pos - str);
+        }
+    }
+    return pos;
+}
+
 
 } // namespace abaci::lib
