@@ -6,6 +6,7 @@
 #include "utility/Temporary.hpp"
 #include "localize/Keywords.hpp"
 #include <llvm/IR/Verifier.h>
+#include <llvm/ExecutionEngine/Orc/Core.h>
 #include <llvm/ExecutionEngine/Orc/LLJIT.h>
 #include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
 #include <llvm/Support/TargetSelect.h>
@@ -15,9 +16,9 @@
 #include <cmath>
 
 #if LLVM_VERSION_MAJOR < 17
-#define RUNTIME_FUNCTION(NAME, ADDRESS) { (*jit)->getExecutionSession().intern(NAME), { reinterpret_cast<uintptr_t>(ADDRESS), JITSymbolFlags::Callable | JITSymbolFlags::Exported } }
+#define RUNTIME_FUNCTION(NAME, ADDRESS) Symbols[(*jit)->getExecutionSession().intern(NAME)] = { reinterpret_cast<uintptr_t>(ADDRESS), JITSymbolFlags::Callable | JITSymbolFlags::Exported };
 #else
-#define RUNTIME_FUNCTION(NAME, ADDRESS) { (*jit)->getExecutionSession().intern(NAME), ExecutorSymbolDef(ExecutorAddr(JITEvaluatedSymbol::fromPointer(ADDRESS).getAddress()), JITSymbolFlags::Callable | JITSymbolFlags::Exported ) }
+#define RUNTIME_FUNCTION(NAME, ADDRESS) Symbols[(*jit)->getExecutionSession().intern(NAME)] = ExecutorSymbolDef(ExecutorAddr(JITEvaluatedSymbol::fromPointer(ADDRESS).getAddress()), JITSymbolFlags::Callable | JITSymbolFlags::Exported);
 #endif
 
 namespace abaci::engine {
@@ -96,10 +97,14 @@ void JIT::initialize() {
     Function::Create(validIndexType, Function::ExternalLinkage, "validIndex", module.get());
     FunctionType *indexStringType = FunctionType::get(PointerType::get(stringType, 0), { PointerType::get(stringType, 0), builder.getInt64Ty() }, false);
     Function::Create(indexStringType, Function::ExternalLinkage, "indexString", module.get());
-    FunctionType *sliceStringType = FunctionType::get(PointerType::get(stringType, 0), { PointerType::get(stringType, 0), builder.getInt64Ty(), builder.getInt64Ty() }, false);
-    Function::Create(sliceStringType, Function::ExternalLinkage, "sliceString", module.get());
     FunctionType *spliceStringType = FunctionType::get(builder.getVoidTy(), { PointerType::get(stringType, 0), builder.getInt64Ty(), builder.getInt64Ty(), PointerType::get(stringType, 0) }, false);
     Function::Create(spliceStringType, Function::ExternalLinkage, "spliceString", module.get());
+    FunctionType *sliceStringType = FunctionType::get(PointerType::get(stringType, 0), { PointerType::get(stringType, 0), builder.getInt64Ty(), builder.getInt64Ty() }, false);
+    Function::Create(sliceStringType, Function::ExternalLinkage, "sliceString", module.get());
+    FunctionType *sliceListType = FunctionType::get(PointerType::get(listType, 0), { PointerType::get(listType, 0), builder.getInt64Ty(), builder.getInt64Ty() }, false);
+    Function::Create(sliceListType, Function::ExternalLinkage, "sliceList", module.get());
+    FunctionType *spliceListType = FunctionType::get(PointerType::get(listType, 0), { PointerType::get(listType, 0), builder.getInt64Ty(), builder.getInt64Ty(), PointerType::get(listType, 0) }, false);
+    Function::Create(spliceListType, Function::ExternalLinkage, "spliceList", module.get());
     FunctionType *deleteElementType = FunctionType::get(builder.getVoidTy(), { PointerType::get(listType, 0), builder.getInt64Ty() }, false);
     Function::Create(deleteElementType, Function::ExternalLinkage, "deleteElement", module.get());
     FunctionType *destroyComplexType = FunctionType::get(builder.getVoidTy(), { PointerType::get(complexType, 0) }, false);
@@ -110,10 +115,6 @@ void JIT::initialize() {
     Function::Create(destroyInstanceType, Function::ExternalLinkage, "destroyInstance", module.get());
     FunctionType *destroyListType = FunctionType::get(builder.getVoidTy(), { PointerType::get(listType, 0) }, false);
     Function::Create(destroyListType, Function::ExternalLinkage, "destroyList", module.get());
-    FunctionType *sliceListType = FunctionType::get(PointerType::get(listType, 0), { PointerType::get(listType, 0), builder.getInt64Ty(), builder.getInt64Ty() }, false);
-    Function::Create(sliceListType, Function::ExternalLinkage, "sliceList", module.get());
-    FunctionType *spliceListType = FunctionType::get(PointerType::get(listType, 0), { PointerType::get(listType, 0), builder.getInt64Ty(), builder.getInt64Ty(), PointerType::get(listType, 0) }, false);
-    Function::Create(spliceListType, Function::ExternalLinkage, "spliceList", module.get());
     FunctionType *userInputType = FunctionType::get(PointerType::get(stringType, 0), { PointerType::get(contextType, 0) }, false);
     Function::Create(userInputType, Function::ExternalLinkage, "userInput", module.get());
     FunctionType *toTypeType = FunctionType::get(builder.getInt64Ty(), { builder.getInt32Ty(), builder.getInt64Ty(), builder.getInt32Ty() }, false);
@@ -177,58 +178,65 @@ ExecFunctionType JIT::getExecFunction() {
     builder.CreateRetVoid();
     InitializeNativeTarget();
     InitializeNativeTargetAsmPrinter();
-    jit = jitBuilder.create();
+    auto JTMB = JITTargetMachineBuilder::detectHost();
+    if (!JTMB) {
+        errs() << "Error detecting host: " << toString(JTMB.takeError()) << '\n';
+    }
+    auto opts = JTMB->getOptions();
+    opts.ExceptionModel = ExceptionHandling::WinEH; // Enable exception handling
+    JTMB->setOptions(opts);
+
+    jit = jitBuilder.setJITTargetMachineBuilder(std::move(*JTMB)).create();
     if (!jit) {
         UnexpectedError0(NoLLJIT);
     }
-    if (auto err = (*jit)->addIRModule(ThreadSafeModule(std::move(module), std::move(context)))) {
-        handleAllErrors(std::move(err), [&](ErrorInfoBase& eib) {
-            errs() << "Error: " << eib.message() << '\n';
-        });
-        UnexpectedError0(NoModule);
-    }
-    if (auto err = (*jit)->getMainJITDylib().define(absoluteSymbols(SymbolMap{
-            RUNTIME_FUNCTION("printValueNil", &printValue<Instance*>),
-            RUNTIME_FUNCTION("printValueBoolean", &printValue<bool>),
-            RUNTIME_FUNCTION("printValueInteger", &printValue<uint64_t>),
-            RUNTIME_FUNCTION("printValueFloating", &printValue<double>),
-            RUNTIME_FUNCTION("printValueComplex", &printValue<Complex*>),
-            RUNTIME_FUNCTION("printValueString", &printValue<String*>),
-            RUNTIME_FUNCTION("printValueInstance", &printValue<Instance*>),
-            RUNTIME_FUNCTION("printValueList", &printValue<List*>),
-            RUNTIME_FUNCTION("printComma", &printComma),
-            RUNTIME_FUNCTION("printLn", &printLn),
-            RUNTIME_FUNCTION("userInput", &userInput),
-            RUNTIME_FUNCTION("toType", &toType),
-            RUNTIME_FUNCTION("makeComplex", &makeComplex),
-            RUNTIME_FUNCTION("makeString", &makeString),
-            RUNTIME_FUNCTION("makeInstance", &makeInstance),
-            RUNTIME_FUNCTION("makeList", &makeList),
-            RUNTIME_FUNCTION("opComplex", &opComplex),
-            RUNTIME_FUNCTION("compareString", &compareString),
-            RUNTIME_FUNCTION("concatString", &concatString),
-            RUNTIME_FUNCTION("validIndex", &validIndex),
-            RUNTIME_FUNCTION("indexString", &indexString),
-            RUNTIME_FUNCTION("sliceString", &sliceString),
-            RUNTIME_FUNCTION("spliceString", &spliceString),
-            RUNTIME_FUNCTION("deleteElement", &deleteElement),
-            RUNTIME_FUNCTION("sliceList", &sliceList),
-            RUNTIME_FUNCTION("spliceList", &spliceList),
-            RUNTIME_FUNCTION("cloneComplex", &cloneComplex),
-            RUNTIME_FUNCTION("cloneString", &cloneString),
-            RUNTIME_FUNCTION("cloneInstance", &cloneInstance),
-            RUNTIME_FUNCTION("cloneList", &cloneList),
-            RUNTIME_FUNCTION("destroyComplex", &destroyComplex),
-            RUNTIME_FUNCTION("destroyString", &destroyString),
-            RUNTIME_FUNCTION("destroyInstance", &destroyInstance),
-            RUNTIME_FUNCTION("destroyList", &destroyList),
-            RUNTIME_FUNCTION("pow", static_cast<double(*)(double,double)>(&pow)),
-            RUNTIME_FUNCTION("memcpy", &memcpy)
-        }))) {
+    SymbolMap Symbols;
+    RUNTIME_FUNCTION("printValueNil", &printValue<Instance*>)
+    RUNTIME_FUNCTION("printValueBoolean", &printValue<bool>)
+    RUNTIME_FUNCTION("printValueInteger", &printValue<uint64_t>)
+    RUNTIME_FUNCTION("printValueFloating", &printValue<double>)
+    RUNTIME_FUNCTION("printValueComplex", &printValue<Complex*>)
+    RUNTIME_FUNCTION("printValueString", &printValue<String*>)
+    RUNTIME_FUNCTION("printValueInstance", &printValue<Instance*>)
+    RUNTIME_FUNCTION("printValueList", &printValue<List*>)
+    RUNTIME_FUNCTION("printComma", &printComma)
+    RUNTIME_FUNCTION("printLn", &printLn)
+    RUNTIME_FUNCTION("userInput", &userInput)
+    RUNTIME_FUNCTION("toType", &toType)
+    RUNTIME_FUNCTION("makeComplex", &makeComplex)
+    RUNTIME_FUNCTION("makeString", &makeString)
+    RUNTIME_FUNCTION("makeInstance", &makeInstance)
+    RUNTIME_FUNCTION("makeList", &makeList)
+    RUNTIME_FUNCTION("opComplex", &opComplex)
+    RUNTIME_FUNCTION("compareString", &compareString)
+    RUNTIME_FUNCTION("concatString", &concatString)
+    RUNTIME_FUNCTION("validIndex", &validIndex)
+    RUNTIME_FUNCTION("indexString", &indexString)
+    RUNTIME_FUNCTION("spliceString", &spliceString)
+    RUNTIME_FUNCTION("sliceList", &sliceList)
+    RUNTIME_FUNCTION("spliceList", &spliceList)
+    RUNTIME_FUNCTION("deleteElement", &deleteElement)
+    RUNTIME_FUNCTION("cloneComplex", &cloneComplex)
+    RUNTIME_FUNCTION("cloneString", &cloneString)
+    RUNTIME_FUNCTION("cloneInstance", &cloneInstance)
+    RUNTIME_FUNCTION("cloneList", &cloneList)
+    RUNTIME_FUNCTION("destroyComplex", &destroyComplex)
+    RUNTIME_FUNCTION("destroyString", &destroyString)
+    RUNTIME_FUNCTION("destroyInstance", &destroyInstance)
+    RUNTIME_FUNCTION("destroyList", &destroyList)
+    RUNTIME_FUNCTION("pow", static_cast<double(*)(double,double)>(&pow))
+    RUNTIME_FUNCTION("memcpy", &memcpy)
+    if (auto err = (*jit)->getMainJITDylib().define(std::make_unique<AbsoluteSymbolsMaterializationUnit>(std::move(Symbols)))) {
         handleAllErrors(std::move(err), [&](ErrorInfoBase& eib) {
             errs() << "Error: " << eib.message() << '\n';
         });
         UnexpectedError0(NoSymbol);
+    }
+    if (auto err = (*jit)->addIRModule(ThreadSafeModule(std::move(module), std::move(context)))) {
+        handleAllErrors(std::move(err), [&](ErrorInfoBase& eib) {
+            errs() << "Error: " << eib.message() << '\n';
+            });
+        UnexpectedError0(NoModule);
     }
     auto contextSymbol = (*jit)->lookup("Context");
     auto functionSymbol = (*jit)->lookup(functionName);

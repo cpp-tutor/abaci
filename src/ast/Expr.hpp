@@ -6,7 +6,7 @@
 #include "utility/Constant.hpp"
 #include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
 #include <boost/fusion/adapted/struct.hpp>
-#include <deque>
+#include <boost/container/vector.hpp>
 #include <vector>
 #include <variant>
 #include <utility>
@@ -22,7 +22,7 @@ using abaci::utility::Operator;
 struct ExprNode;
 
 using ExprList = std::vector<ExprNode>;
-using ExprPair = std::deque<ExprNode>;
+using ExprPair = boost::container::vector<ExprNode>;
 
 struct Variable : position_tagged {
     Variable() = default;
