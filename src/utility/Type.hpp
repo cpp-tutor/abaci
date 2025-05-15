@@ -57,7 +57,7 @@ struct TypeInstance : TypeBase {
 
 struct TypeList : TypeBase {
     Type elementType;
-    };
+};
 
 AbaciValue::Type typeToScalar(const Type& type);
 std::string typeToString(const Type& type);

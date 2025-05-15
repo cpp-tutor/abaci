@@ -34,6 +34,7 @@ using abaci::utility::TypeConversions;
 
 using abaci::ast::ExprNode;
 using abaci::ast::ExprList;
+using abaci::ast::ExprPair;
 using abaci::ast::Variable;
 using abaci::ast::FunctionValueCall;
 using abaci::ast::UserInput;
@@ -191,6 +192,7 @@ x3::rule<struct variable_class, Variable> const variable;
 x3::rule<struct this_ptr_class, Variable> const this_ptr;
 x3::rule<class function_value_call, FunctionValueCall> const function_value_call;
 x3::rule<class call_index, ExprList> const call_index;
+x3::rule<class call_slice, ExprPair> const call_slice;
 x3::rule<class call_function, FunctionValueCall> const call_function;
 x3::rule<class call_list, CallList> const call_list;
 x3::rule<class this_call, MultiCall> const this_call;
@@ -502,8 +504,9 @@ const auto this_value_call_def = this_ptr >> *( DOT >> variable );
 const auto data_method_call_def = variable >> DOT >> *( variable >> DOT ) >> identifier >> call_args;
 const auto this_method_call_def = this_ptr >> DOT >> *( variable >> DOT ) >> identifier >> call_args;
 const auto call_index_def = +( LEFT_BRACKET >> expression >> RIGHT_BRACKET );
+const auto call_slice_def = LEFT_BRACKET >> expression >> COLON >> expression >> RIGHT_BRACKET;
 const auto call_function_def = identifier >> call_args;
-const auto call_list_def = ( DOT >> call_function ) | ( DOT >> variable ) | call_index;
+const auto call_list_def = ( DOT >> call_function ) | ( DOT >> variable ) | call_slice | call_index;
 const auto multi_call_def = variable >> *call_list;
 const auto this_call_def = this_ptr >> *call_list;
 const auto user_input_def = lit(INPUT);
@@ -550,7 +553,7 @@ const auto print_items_def = -( expression >> -( ( comma | semicolon ) >> *( exp
 const auto print_stmt_def = PRINT >> print_items[MakeStmt<PrintStmt>()];
 const auto let_items_def = variable >> (equal | from) >> expression;
 const auto let_stmt_def = LET >> let_items[MakeStmt<InitStmt>()];
-const auto assign_list_def = ( DOT >> variable ) | call_index;
+const auto assign_list_def = ( DOT >> variable ) | call_slice | call_index;
 const auto assign_items_def = variable >> *assign_list >> FROM >> expression;
 const auto this_assign_items_def = this_ptr >> *assign_list >> FROM >> expression;
 const auto assign_stmt_def = this_assign_items[MakeStmt<AssignStmt>()] | assign_items[MakeStmt<AssignStmt>()];
@@ -602,7 +605,7 @@ BOOST_SPIRIT_DEFINE(expression, logic_or, logic_and, logic_and_n,
     equality, equality_n, comparison, comparison_n,
     term, term_n, factor, factor_n, unary, unary_n, index, index_n, primary_n)
 BOOST_SPIRIT_DEFINE(identifier, variable, function_value_call,
-    call_index, call_function, call_list, this_call, multi_call, user_input, type_conversion_items, type_conversion, keywords,
+    call_index, call_slice, call_function, call_list, this_call, multi_call, user_input, type_conversion_items, type_conversion, keywords,
     list_items, empty_list_items, list,
     comment_items, comment, print_items, print_stmt,
     let_items, let_stmt, assign_list, assign_items, assign_stmt, if_items, if_stmt,

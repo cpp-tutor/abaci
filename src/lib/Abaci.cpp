@@ -144,34 +144,85 @@ std::size_t validIndex(int64_t index, std::size_t limit) {
 
 String *indexString(String *object, std::size_t index) {
     index = validIndex(index, object->utf8Length);
-    const char8_t *pos1 = utf8StrPos(object->ptr, index), *pos2 = utf8StrPos(pos1, 1);
-    return makeString(const_cast<char8_t*>(pos1), static_cast<std::size_t>(pos2 - pos1));
+    const char8_t *posBegin = utf8StrPos(object->ptr, index), *posEnd = utf8StrPos(posBegin, 1);
+    return makeString(const_cast<char8_t*>(posBegin), static_cast<std::size_t>(posEnd - posBegin));
 }
 
-void spliceString(String *object, std::size_t start, std::size_t end, String *splice) {
-    const char8_t *pos1 = utf8StrPos(object->ptr, start), *pos2 = utf8StrPos(pos1, end - start);
-    std::size_t rawStart = pos1 - object->ptr, rawEnd = pos2 - object->ptr;
-    if (splice == nullptr) {
-        memmove(const_cast<char8_t*>(pos1), pos2, object->length - static_cast<std::size_t>(pos2 - pos1));
-        object->utf8Length -= end - start;
-        object->length -= rawEnd - rawStart;
+String *sliceString(String *object, std::size_t indexBegin, std::size_t indexEnd) {
+    indexBegin = validIndex(indexBegin, object->utf8Length + 1);
+    indexEnd = validIndex(indexEnd, object->utf8Length + 1);
+    if (indexBegin > indexEnd) {
+        indexBegin = indexEnd;
     }
-    else if ((rawEnd - rawStart) >= splice->length) {
-        memcpy(const_cast<char8_t*>(pos1), splice->ptr, splice->length);
-        memmove(const_cast<char8_t*>(pos1) + splice->length, pos2, object->length - rawEnd);
-        object->utf8Length += -(end - start) + splice->utf8Length;
-        object->length += -(rawEnd - rawStart) + splice->length;
+    const char8_t *posBegin = utf8StrPos(object->ptr, indexBegin), *posEnd = utf8StrPos(posBegin, indexEnd - indexBegin);
+    return makeString(const_cast<char8_t*>(posBegin), static_cast<std::size_t>(posEnd - posBegin));
+}
+
+void spliceString(String *object, std::size_t indexBegin, std::size_t indexEnd, String *splice) {
+    const char8_t *posBegin = utf8StrPos(object->ptr, indexBegin), *posEnd = utf8StrPos(posBegin, indexEnd - indexBegin);
+    std::size_t rawBegin = posBegin - object->ptr, rawEnd = posEnd - object->ptr;
+    if (splice == nullptr) {
+        memmove(const_cast<char8_t*>(posBegin), posEnd, object->length - static_cast<std::size_t>(posEnd - object->ptr));
+        object->utf8Length -= indexEnd - indexBegin;
+        object->length -= rawEnd - rawBegin;
+    }
+    else if ((rawEnd - rawBegin) >= splice->length) {
+        memcpy(const_cast<char8_t*>(posBegin), splice->ptr, splice->length);
+        memmove(const_cast<char8_t*>(posBegin) + splice->length, posEnd, object->length - rawEnd);
+        object->utf8Length += -(indexEnd - indexBegin) + splice->utf8Length;
+        object->length += -(rawEnd - rawBegin) + splice->length;
     }
     else {
-        auto *str = new char8_t[object->length - (rawEnd - rawStart) + splice->length];
-        memcpy(str, object->ptr, rawStart);
-        memcpy(str + rawStart, splice->ptr, splice->length);
-        memcpy(str + rawStart + splice->length, pos2, object->length - rawEnd);
+        auto *str = new char8_t[object->length - (rawEnd - rawBegin) + splice->length];
+        memcpy(str, object->ptr, rawBegin);
+        memcpy(str + rawBegin, splice->ptr, splice->length);
+        memcpy(str + rawBegin + splice->length, posEnd, object->length - rawEnd);
         delete[] object->ptr;
         object->ptr = str;
-        object->utf8Length += -(end - start) + splice->utf8Length;
-        object->length += -(rawEnd - rawStart) + splice->length;
+        object->utf8Length += -(indexEnd - indexBegin) + splice->utf8Length;
+        object->length += -(rawEnd - rawBegin) + splice->length;
     }
+}
+
+List *sliceList(List *existing, std::size_t indexBegin, std::size_t indexEnd) {
+    indexBegin = validIndex(indexBegin, existing->length + 1);
+    indexEnd = validIndex(indexEnd, existing->length + 1);
+    if (indexBegin > indexEnd) {
+        indexBegin = indexEnd;
+    }
+    auto *object = new List{};
+    object->elements = existing->elements + indexBegin;
+    object->length = indexEnd - indexBegin;
+    return object;
+}
+
+List *spliceList(List *object, std::size_t indexBegin, std::size_t indexEnd, List *splice) {
+    indexBegin = validIndex(indexBegin, object->length + 1);
+    indexEnd = validIndex(indexEnd, object->length + 1);
+    if (indexBegin > indexEnd) {
+        indexBegin = indexEnd;
+    }
+    List *deleted = makeList(indexEnd - indexBegin);
+    memcpy(deleted->elements, object->elements + indexBegin, (indexEnd - indexBegin) * sizeof(AbaciValue));
+    if (splice == nullptr) {
+        memmove(object->elements + indexBegin, object->elements + indexEnd, (object->length - indexEnd) * sizeof(AbaciValue));
+        object->length -= indexEnd - indexBegin;
+    }
+    else if ((indexEnd - indexBegin) >= splice->length) {
+        memcpy(object->elements + indexBegin, splice->elements, splice->length * sizeof(AbaciValue));
+        memmove(object->elements + indexBegin + splice->length, object->elements + indexEnd, (object->length - indexEnd) * sizeof(AbaciValue));
+        object->length += -(indexEnd - indexBegin) + splice->length;
+    }
+    else {
+        auto *elems = new AbaciValue[object->length - (indexEnd - indexBegin) + splice->length];
+        memcpy(elems, object->elements, indexBegin * sizeof(AbaciValue));
+        memcpy(elems + indexBegin, splice->elements, splice->length * sizeof(AbaciValue));
+        memcpy(elems + indexBegin + splice->length, object->elements + indexEnd, (object->length - indexEnd) * sizeof(AbaciValue));
+        delete[] object->elements;
+        object->elements = elems;
+        object->length += -(indexEnd - indexBegin) + splice->length;
+    }
+    return deleted;
 }
 
 Complex *opComplex(Operator op, Complex *operand1, Complex *operand2) {

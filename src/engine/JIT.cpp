@@ -96,6 +96,8 @@ void JIT::initialize() {
     Function::Create(validIndexType, Function::ExternalLinkage, "validIndex", module.get());
     FunctionType *indexStringType = FunctionType::get(PointerType::get(stringType, 0), { PointerType::get(stringType, 0), builder.getInt64Ty() }, false);
     Function::Create(indexStringType, Function::ExternalLinkage, "indexString", module.get());
+    FunctionType *sliceStringType = FunctionType::get(PointerType::get(stringType, 0), { PointerType::get(stringType, 0), builder.getInt64Ty(), builder.getInt64Ty() }, false);
+    Function::Create(sliceStringType, Function::ExternalLinkage, "sliceString", module.get());
     FunctionType *spliceStringType = FunctionType::get(builder.getVoidTy(), { PointerType::get(stringType, 0), builder.getInt64Ty(), builder.getInt64Ty(), PointerType::get(stringType, 0) }, false);
     Function::Create(spliceStringType, Function::ExternalLinkage, "spliceString", module.get());
     FunctionType *deleteElementType = FunctionType::get(builder.getVoidTy(), { PointerType::get(listType, 0), builder.getInt64Ty() }, false);
@@ -108,6 +110,10 @@ void JIT::initialize() {
     Function::Create(destroyInstanceType, Function::ExternalLinkage, "destroyInstance", module.get());
     FunctionType *destroyListType = FunctionType::get(builder.getVoidTy(), { PointerType::get(listType, 0) }, false);
     Function::Create(destroyListType, Function::ExternalLinkage, "destroyList", module.get());
+    FunctionType *sliceListType = FunctionType::get(PointerType::get(listType, 0), { PointerType::get(listType, 0), builder.getInt64Ty(), builder.getInt64Ty() }, false);
+    Function::Create(sliceListType, Function::ExternalLinkage, "sliceList", module.get());
+    FunctionType *spliceListType = FunctionType::get(PointerType::get(listType, 0), { PointerType::get(listType, 0), builder.getInt64Ty(), builder.getInt64Ty(), PointerType::get(listType, 0) }, false);
+    Function::Create(spliceListType, Function::ExternalLinkage, "spliceList", module.get());
     FunctionType *userInputType = FunctionType::get(PointerType::get(stringType, 0), { PointerType::get(contextType, 0) }, false);
     Function::Create(userInputType, Function::ExternalLinkage, "userInput", module.get());
     FunctionType *toTypeType = FunctionType::get(builder.getInt64Ty(), { builder.getInt32Ty(), builder.getInt64Ty(), builder.getInt32Ty() }, false);
@@ -203,8 +209,11 @@ ExecFunctionType JIT::getExecFunction() {
             RUNTIME_FUNCTION("concatString", &concatString),
             RUNTIME_FUNCTION("validIndex", &validIndex),
             RUNTIME_FUNCTION("indexString", &indexString),
+            RUNTIME_FUNCTION("sliceString", &sliceString),
             RUNTIME_FUNCTION("spliceString", &spliceString),
             RUNTIME_FUNCTION("deleteElement", &deleteElement),
+            RUNTIME_FUNCTION("sliceList", &sliceList),
+            RUNTIME_FUNCTION("spliceList", &spliceList),
             RUNTIME_FUNCTION("cloneComplex", &cloneComplex),
             RUNTIME_FUNCTION("cloneString", &cloneString),
             RUNTIME_FUNCTION("cloneInstance", &cloneInstance),

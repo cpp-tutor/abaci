@@ -13,6 +13,7 @@ using namespace llvm;
 
 using abaci::ast::ExprNode;
 using abaci::ast::ExprList;
+using abaci::ast::ExprPair;
 using abaci::ast::Variable;
 using abaci::ast::FunctionValueCall;
 using abaci::ast::UserInput;
@@ -725,7 +726,6 @@ void ExprCodeGen::codeGen(const List& list) const {
     if (!list.elements->empty()) {
         ArrayType *array = ArrayType::get(builder.getInt64Ty(), list.elements->size());
         Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), listObject, 1));
-        Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(0) });
         for (std::size_t index = 0; const auto& element : *(list.elements)) {
             ExprCodeGen expr(jit, locals, temps);
             expr(element);
@@ -742,8 +742,6 @@ void ExprCodeGen::codeGen(const List& list) const {
             else {
                 value = cloneValue(jit, result.first, result.second);
             }
-            ArrayType *array = ArrayType::get(builder.getInt64Ty(), list.elements->size());
-            Value *arrayPtr = builder.CreateLoad(PointerType::get(array, 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), listObject, 1));
             Value *valuePtr = builder.CreateGEP(array, arrayPtr, { builder.getInt32(0), builder.getInt32(index) });
             builder.CreateStore(value, valuePtr);
             ++index;
@@ -807,10 +805,10 @@ void ExprCodeGen::codeGen(const MultiCall& call) const {
                     UnexpectedError1(VariableNotList, name);
                 }
                 for (const auto& indexExpression : callIndexes) {
-                    name += "[]";
                     if (typePtr == nullptr && typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
                         UnexpectedError1(TooManyIndexes, name);
                     }
+                    name += "[]";
                     ExprCodeGen expr(jit, locals, temps);
                     expr(indexExpression);
                     if (typeToScalar(expr.get().second) != AbaciValue::Integer) {
@@ -840,6 +838,43 @@ void ExprCodeGen::codeGen(const MultiCall& call) const {
                         value = { builder.CreateCall(module.getFunction("indexString"), { value.first, index }), AbaciValue::String };
                         temps->addTemporary(value);
                     }
+                }
+                break;
+            }
+            case CallList::TypeSlice: {
+                const auto& callSlice = std::get<ExprPair>(callElement.call);
+                Assert(callSlice.size() == 2);
+                std::shared_ptr<TypeList> typePtr;
+                if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
+                    typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    Assert(typePtr != nullptr);
+                }
+                else if (typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
+                    UnexpectedError1(VariableNotList, name);
+                }
+                name += "[:]";
+                ExprCodeGen exprBegin(jit, locals, temps);
+                exprBegin(callSlice.at(0));
+                if (typeToScalar(exprBegin.get().second) != AbaciValue::Integer) {
+                    UnexpectedError1(IndexNotInt, name);
+                }
+                ExprCodeGen exprEnd(jit, locals, temps);
+                exprEnd(callSlice.at(1));
+                if (typeToScalar(exprEnd.get().second) != AbaciValue::Integer) {
+                    UnexpectedError1(IndexNotInt, name);
+                }
+                if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
+                    Value *begin = exprBegin.get().first, *end = exprEnd.get().first, *slice;
+                    slice = builder.CreateCall(module.getFunction("sliceList"), { value.first, begin, end });
+                    value = { cloneValue(jit, slice, type), type };
+                    builder.CreateStore(ConstantPointerNull::get(PointerType::get(builder.getInt64Ty(), 0)), builder.CreateStructGEP(jit.getNamedType("struct.List"), slice, 1));
+                    builder.CreateCall(jit.getModule().getFunction("destroyList"), { slice });
+                    temps->addTemporary(value);
+                }
+                else if (typeToScalar(removeConstFromType(type)) == AbaciValue::String) {
+                    Value *begin = exprBegin.get().first, *end = exprEnd.get().first;
+                    value = { builder.CreateCall(module.getFunction("sliceString"), { value.first, begin, end }), AbaciValue::String };
+                    temps->addTemporary(value);
                 }
                 break;
             }

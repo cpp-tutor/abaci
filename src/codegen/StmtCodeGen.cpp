@@ -12,6 +12,7 @@ namespace abaci::codegen {
 
 using abaci::ast::ExprNode;
 using abaci::ast::ExprList;
+using abaci::ast::ExprPair;
 using abaci::ast::FunctionValueCall;
 using abaci::ast::StmtNode;
 using abaci::ast::StmtList;
@@ -212,7 +213,7 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
     std::string name = assign.name.name;
     Type type = AbaciValue::Unset;
     TypedValue value = { nullptr, type }, parent;
-    Value *valuePtr = nullptr, *index = nullptr;
+    Value *valuePtr = nullptr, *index = nullptr, *sliceBegin = nullptr, *sliceEnd = nullptr;
     if (locals) {
         auto [ variables, index ] = locals->getIndex(name);
         if (index != LocalSymbols::noVariable) {
@@ -268,10 +269,10 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
                     UnexpectedError1(VariableNotList, name);
                 }
                 for (const auto& indexExpression : callIndexes) {
-                    name += "[]";
                     if (typePtr == nullptr && typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
                         UnexpectedError1(TooManyIndexes, name);
                     }
+                    name += "[]";
                     ExprCodeGen expr(jit, locals, temps);
                     expr(indexExpression);
                     if (typeToScalar(expr.get().second) != AbaciValue::Integer) {
@@ -306,6 +307,43 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
                 }
                 break;
             }
+            case CallList::TypeSlice: {
+                const auto& callSlice = std::get<ExprPair>(callElement.call);
+                Assert(callSlice.size() == 2);
+                std::shared_ptr<TypeList> typePtr;
+                if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
+                    typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    Assert(typePtr != nullptr);
+                }
+                else if (typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
+                    UnexpectedError1(VariableNotList, name);
+                }
+                name += "[:]";
+                if (&callElement != &assign.calls.back()) {
+                    UnexpectedError1(SliceNotAtEnd, name);
+                }
+                ExprCodeGen exprBegin(jit, locals, temps);
+                exprBegin(callSlice.at(0));
+                if (typeToScalar(exprBegin.get().second) != AbaciValue::Integer) {
+                    UnexpectedError1(IndexNotInt, name);
+                }
+                ExprCodeGen exprEnd(jit, locals, temps);
+                exprEnd(callSlice.at(1));
+                if (typeToScalar(exprEnd.get().second) != AbaciValue::Integer) {
+                    UnexpectedError1(IndexNotInt, name);
+                }
+                if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
+                    sliceBegin = exprBegin.get().first;
+                    sliceEnd = exprEnd.get().first;
+                    parent = value;
+                }
+                else if (typeToScalar(removeConstFromType(type)) == AbaciValue::String) {
+                    sliceBegin = exprBegin.get().first;
+                    sliceEnd = exprEnd.get().first;
+                    parent = value;
+                }
+                break;
+            }
             default:
                 UnexpectedError0(BadCall);
         }
@@ -313,7 +351,7 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
     ExprCodeGen expr(jit, locals, temps);
     expr(assign.value);
     auto result = expr.get();
-    if (!assign.calls.empty() && assign.calls.back().call.index() == CallList::TypeIndexes) {
+    if (!assign.calls.empty() && (assign.calls.back().call.index() == CallList::TypeIndexes || assign.calls.back().call.index() == CallList::TypeSlice)) {
         if (type != result.second && result.second != AbaciValue::None) {
             UnexpectedError1(AssignMismatch, name);
         }
@@ -360,7 +398,6 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
         else {
             builder.CreateStore(cloneValue(jit, result.first, type), valuePtr);
         }
-
     }
     else if (assign.calls.back().call.index() == CallList::TypeIndexes) {
         if (typeToScalar(removeConstFromType(parent.second)) == AbaciValue::List) {
@@ -384,6 +421,7 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
         }
         else if (typeToScalar(removeConstFromType(parent.second)) == AbaciValue::String) {
             if (result.second != AbaciValue::None) {
+                Assert(typeToScalar(removeConstFromType(result.second)) == AbaciValue::String);
                 Value *endIndex = builder.CreateAdd(index, builder.getInt64(1));
                 builder.CreateCall(module.getFunction("spliceString"), { parent.first, index, endIndex, result.first });
             }
@@ -394,6 +432,30 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
         }
         else {
             UnexpectedError0(BadType);
+        }
+    }
+    else if (assign.calls.back().call.index() == CallList::TypeSlice) {
+        if (typeToScalar(removeConstFromType(parent.second)) == AbaciValue::List) {
+            Value *deletedElements;
+            if (result.second != AbaciValue::None) {
+                Assert(type == result.second);
+                Value *clonedValue = cloneValue(jit, result.first, type);
+                deletedElements = builder.CreateCall(module.getFunction("spliceList"), { parent.first, sliceBegin, sliceEnd, clonedValue });
+                builder.CreateCall(module.getFunction("destroyList"), { clonedValue });
+            }
+            else {
+                deletedElements = builder.CreateCall(module.getFunction("spliceList"), { parent.first, sliceBegin, sliceEnd, ConstantPointerNull::get(PointerType::get(jit.getNamedType("struct.List"), 0)) });
+            }
+            destroyValue(jit, deletedElements, type);
+        }
+        else if (typeToScalar(removeConstFromType(parent.second)) == AbaciValue::String) {
+            if (result.second != AbaciValue::None) {
+                Assert(type == result.second);
+                builder.CreateCall(module.getFunction("spliceString"), { result.first, sliceBegin, sliceEnd, result.first });
+            }
+            else {
+                builder.CreateCall(module.getFunction("spliceString"), { parent.first, sliceBegin, sliceEnd, ConstantPointerNull::get(PointerType::get(jit.getNamedType("struct.String"), 0)) });
+            }
         }
     }
     else {

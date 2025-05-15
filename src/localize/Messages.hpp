@@ -56,7 +56,7 @@ MESSAGE(InitialPrompt, "Abaci version {}\nEnter code, or \"{}\" to end:\n> ");
 MESSAGE(InputPrompt, "> ");
 MESSAGE(ContinuationPrompt, ". ");
 MESSAGE(SyntaxError, "Unrecognized input.");
-MESSAGE(Version, "0.1.5 (2025-May-01)");
+MESSAGE(Version, "0.2.0 (2025-May-18)");
 
 MESSAGE(BadVariableIndex, "Bad index of variable.");
 MESSAGE(BadTemporary, "Bad temporary.");
@@ -71,6 +71,8 @@ MESSAGE(EmptyListNeedsType, "An empty list must be given an element type.");
 MESSAGE(ListTypeMismatch, "Mismatching types for list elements (\'{}\' and \'{}\').");
 MESSAGE(VariableNotList, "Variable \'{}\' is not a list or a string.");
 MESSAGE(IndexNotInt, "Index to \'{}\' must be of integer type.");
+MESSAGE(SliceNotInt, "Slice begin and end for \'{}\' must be of integer type.");
+MESSAGE(SliceNotAtEnd, "Slice \'{}\' must be last entity of assignment.");
 MESSAGE(TooManyIndexes, "Cannot get subscript of \'{}\'.");
 MESSAGE(AssignMismatch, "Mismatching types for element assignment (\'{}\' and \'{}\').");
 MESSAGE(IncompatibleTypes, "Types \'{}\' and \'{}\' are incompatible.");

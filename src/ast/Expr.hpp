@@ -6,6 +6,7 @@
 #include "utility/Constant.hpp"
 #include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
 #include <boost/fusion/adapted/struct.hpp>
+#include <deque>
 #include <vector>
 #include <variant>
 #include <utility>
@@ -21,6 +22,7 @@ using abaci::utility::Operator;
 struct ExprNode;
 
 using ExprList = std::vector<ExprNode>;
+using ExprPair = std::deque<ExprNode>;
 
 struct Variable : position_tagged {
     Variable() = default;
@@ -37,8 +39,8 @@ struct FunctionValueCall : position_tagged {
 };
 
 struct CallList {
-    enum Type { TypeVariable, TypeIndexes, TypeFunction };
-    std::variant<Variable,ExprList,FunctionValueCall> call;
+    enum Type { TypeVariable, TypeIndexes, TypeSlice, TypeFunction };
+    std::variant<Variable,ExprList,ExprPair,FunctionValueCall> call;
 };
 
 struct MultiCall : position_tagged {

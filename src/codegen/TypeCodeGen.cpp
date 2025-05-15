@@ -16,6 +16,7 @@ using abaci::ast::CallList;
 using abaci::ast::MultiCall;
 using abaci::ast::ExprNode;
 using abaci::ast::ExprList;
+using abaci::ast::ExprPair;
 using abaci::ast::PrintList;
 using abaci::ast::StmtNode;
 using abaci::ast::StmtList;
@@ -466,14 +467,14 @@ void TypeEvalGen::codeGen(const MultiCall& call) const {
                     LogicError1(VariableNotList, name);
                 }
                 for (const auto& indexExpression : callIndexes) {
-                    name += "[]";
                     if (typePtr == nullptr && typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
                         LogicError1(TooManyIndexes, name);
                     }
+                    name += "[]";
                     TypeEvalGen expr(context, cache, locals);
                     expr(indexExpression);
                     if (typeToScalar(expr.get()) != AbaciValue::Integer) {
-                        LogicError0(IndexNotInt);
+                        LogicError1(IndexNotInt, name);
                     }
                     if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
                         type = typePtr->elementType;
@@ -489,6 +490,30 @@ void TypeEvalGen::codeGen(const MultiCall& call) const {
                             LogicError1(TooManyIndexes, name);
                         }
                     }
+                }
+                break;
+            }
+            case CallList::TypeSlice: {
+                const auto& callSlice = std::get<ExprPair>(callElement.call);
+                Assert(callSlice.size() == 2);
+                std::shared_ptr<TypeList> typePtr;
+                if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
+                    typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    Assert(typePtr != nullptr);
+                }
+                else if (typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
+                    LogicError1(VariableNotList, name);
+                }
+                name += "[:]";
+                TypeEvalGen exprBegin(context, cache, locals);
+                exprBegin(callSlice.at(0));
+                if (typeToScalar(exprBegin.get()) != AbaciValue::Integer) {
+                    LogicError1(SliceNotInt, name);
+                }
+                TypeEvalGen exprEnd(context, cache, locals);
+                exprEnd(callSlice.at(1));
+                if (typeToScalar(exprEnd.get()) != AbaciValue::Integer) {
+                    LogicError1(SliceNotInt, name);
                 }
                 break;
             }
@@ -687,13 +712,12 @@ void TypeCodeGen::codeGen(const AssignStmt& assign) const {
                     LogicError1(VariableNotList, name);
                 }
                 for (const auto& indexExpression : callIndexes) {
-                    name += "[]";
                     if (typePtr == nullptr && typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
                         LogicError1(TooManyIndexes, name);
                     }
+                    name += "[]";
                     TypeEvalGen expr(context, cache, locals);
                     expr(indexExpression);
-                    name += "[]";
                     if (typeToScalar(expr.get()) != AbaciValue::Integer) {
                         LogicError1(IndexNotInt, name);
                     }
@@ -714,6 +738,33 @@ void TypeCodeGen::codeGen(const AssignStmt& assign) const {
                 }
                 break;
             }
+            case CallList::TypeSlice: {
+                const auto& callSlice = std::get<ExprPair>(callElement.call);
+                Assert(callSlice.size() == 2);
+                std::shared_ptr<TypeList> typePtr;
+                if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
+                    typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+                    Assert(typePtr != nullptr);
+                }
+                else if (typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
+                    LogicError1(VariableNotList, name);
+                }
+                name += "[:]";
+                if (&callElement != &assign.calls.back()) {
+                    LogicError1(SliceNotAtEnd, name);
+                }
+                TypeEvalGen exprBegin(context, cache, locals);
+                exprBegin(callSlice.at(0));
+                if (typeToScalar(exprBegin.get()) != AbaciValue::Integer) {
+                    LogicError1(SliceNotInt, name);
+                }
+                TypeEvalGen exprEnd(context, cache, locals);
+                exprEnd(callSlice.at(1));
+                if (typeToScalar(exprEnd.get()) != AbaciValue::Integer) {
+                    LogicError1(SliceNotInt, name);
+                }
+                break;
+            }
             default:
                 LogicError0(BadCall);
                 break;
@@ -721,9 +772,9 @@ void TypeCodeGen::codeGen(const AssignStmt& assign) const {
     }
     TypeEvalGen expr(context, cache, locals);
     expr(assign.value);
-    if (!assign.calls.empty() && assign.calls.back().call.index() == CallList::TypeIndexes) {
+    if (!assign.calls.empty() && (assign.calls.back().call.index() == CallList::TypeIndexes || assign.calls.back().call.index() == CallList::TypeSlice)) {
         if (type != expr.get() && expr.get() != AbaciValue::None) {
-            LogicError1(AssignMismatch, name);
+            LogicError2(AssignMismatch, typeToString(type), typeToString(expr.get()));
         }
     }
     else if (type != expr.get()) {
