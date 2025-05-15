@@ -107,6 +107,16 @@ s[0] <- "88"
 print s
 ```
 
+Splice and slice
+
+```
+let l <- [[1,2],[3,4]]
+l[1:1] <- [[7,7]]
+print !l
+let l2 <- l[0:2]
+print !l2
+```
+
 Math operators
 
 `+`, `-`, `*`, `/` (always creates floating point number), `%` (integer only), `//` (floor division), `**` (exponentiation)
@@ -246,6 +256,8 @@ msbuild Abaci.sln -t:abacitests -p:Configuration=Release -m
 * **0.1.3** (2024-Nov-25): Ninth release with code improvements and some support for string indexing
 
 * **0.1.4** (2024-Dec-21): Tenth release with full support for string indexing
+
+* **0.2.0** (2025-May-18): Strings assumed to use UTF-8 encoding, splicing and slicing support for lists and strings, library can throw exceptions for Windows build
 
 ## License
 
