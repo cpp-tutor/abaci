@@ -19,6 +19,7 @@ namespace abaci::lib {
 
 using abaci::utility::AbaciValue;
 
+static std::size_t validIndex(int64_t index, std::size_t limit, bool isSlice);
 static std::size_t utf8StrLen(const char8_t *str, std::size_t sz);
 static const char8_t *utf8StrPos(const char8_t *str, std::size_t index);
 
@@ -134,8 +135,8 @@ String *concatString(String *str1, String *str2) {
     return object;
 }
 
-std::size_t validIndex(int64_t index, std::size_t limit) {
-    std::size_t positiveIndex = (index >= 0) ? index : limit + index;
+std::size_t validIndex(int64_t index, std::size_t limit, bool isSlice) {
+    std::size_t positiveIndex = (index >= 0) ? index : limit + index - isSlice;
     if (positiveIndex >= limit) {
         LogicError2(IndexOutOfRange, index, limit);
     }
@@ -143,14 +144,14 @@ std::size_t validIndex(int64_t index, std::size_t limit) {
 }
 
 String *indexString(String *object, std::size_t index) {
-    index = validIndex(index, object->utf8Length);
+    index = validIndex(index, object->utf8Length, false);
     const char8_t *posBegin = utf8StrPos(object->ptr, index), *posEnd = utf8StrPos(posBegin, 1);
     return makeString(const_cast<char8_t*>(posBegin), static_cast<std::size_t>(posEnd - posBegin));
 }
 
 String *sliceString(String *object, std::size_t indexBegin, std::size_t indexEnd) {
-    indexBegin = validIndex(indexBegin, object->utf8Length + 1);
-    indexEnd = validIndex(indexEnd, object->utf8Length + 1);
+    indexBegin = validIndex(indexBegin, object->utf8Length + 1, true);
+    indexEnd = validIndex(indexEnd, object->utf8Length + 1, true);
     if (indexBegin > indexEnd) {
         indexBegin = indexEnd;
     }
@@ -159,6 +160,11 @@ String *sliceString(String *object, std::size_t indexBegin, std::size_t indexEnd
 }
 
 void spliceString(String *object, std::size_t indexBegin, std::size_t indexEnd, String *splice) {
+    indexBegin = validIndex(indexBegin, object->length + 1, true);
+    indexEnd = validIndex(indexEnd, object->length + 1, true);
+    if (indexBegin > indexEnd) {
+        indexBegin = indexEnd;
+    }
     const char8_t *posBegin = utf8StrPos(object->ptr, indexBegin), *posEnd = utf8StrPos(posBegin, indexEnd - indexBegin);
     std::size_t rawBegin = posBegin - object->ptr, rawEnd = posEnd - object->ptr;
     if (splice == nullptr) {
@@ -185,8 +191,8 @@ void spliceString(String *object, std::size_t indexBegin, std::size_t indexEnd, 
 }
 
 List *sliceList(List *existing, std::size_t indexBegin, std::size_t indexEnd) {
-    indexBegin = validIndex(indexBegin, existing->length + 1);
-    indexEnd = validIndex(indexEnd, existing->length + 1);
+    indexBegin = validIndex(indexBegin, existing->length + 1, true);
+    indexEnd = validIndex(indexEnd, existing->length + 1, true);
     if (indexBegin > indexEnd) {
         indexBegin = indexEnd;
     }
@@ -197,8 +203,8 @@ List *sliceList(List *existing, std::size_t indexBegin, std::size_t indexEnd) {
 }
 
 List *spliceList(List *object, std::size_t indexBegin, std::size_t indexEnd, List *splice) {
-    indexBegin = validIndex(indexBegin, object->length + 1);
-    indexEnd = validIndex(indexEnd, object->length + 1);
+    indexBegin = validIndex(indexBegin, object->length + 1, true);
+    indexEnd = validIndex(indexEnd, object->length + 1, true);
     if (indexBegin > indexEnd) {
         indexBegin = indexEnd;
     }

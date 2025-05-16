@@ -451,7 +451,7 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
         else if (typeToScalar(removeConstFromType(parent.second)) == AbaciValue::String) {
             if (result.second != AbaciValue::None) {
                 Assert(type == result.second);
-                builder.CreateCall(module.getFunction("spliceString"), { result.first, sliceBegin, sliceEnd, result.first });
+                builder.CreateCall(module.getFunction("spliceString"), { parent.first, sliceBegin, sliceEnd, result.first });
             }
             else {
                 builder.CreateCall(module.getFunction("spliceString"), { parent.first, sliceBegin, sliceEnd, ConstantPointerNull::get(PointerType::get(jit.getNamedType("struct.String"), 0)) });

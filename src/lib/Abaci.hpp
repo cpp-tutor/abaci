@@ -36,7 +36,6 @@ String *concatString(String *str1, String *str2);
 String *indexString(String *object, std::size_t index);
 String *sliceString(String *object, std::size_t indexBegin, std::size_t indexEnd);
 void spliceString(String *object, std::size_t start, std::size_t end, String *splice);
-std::size_t validIndex(int64_t index, std::size_t limit);
 List *sliceList(List *existing, std::size_t indexBegin, std::size_t indexEnd);
 List *spliceList(List *object, std::size_t start, std::size_t end, List *splice);
 Complex *opComplex(Operator op, Complex *operand1, Complex *operand2);
