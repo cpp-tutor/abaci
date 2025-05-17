@@ -314,7 +314,6 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
                 if (typeToScalar(removeConstFromType(type)) == AbaciValue::List) {
                     typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
                     Assert(typePtr != nullptr);
-                    type = typePtr->elementType;
                 }
                 else if (typeToScalar(removeConstFromType(type)) != AbaciValue::String) {
                     UnexpectedError1(VariableNotList, name);
@@ -352,9 +351,19 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
     ExprCodeGen expr(jit, locals, temps);
     expr(assign.value);
     auto result = expr.get();
-    if (!assign.calls.empty() && (assign.calls.back().call.index() == CallList::TypeIndexes || assign.calls.back().call.index() == CallList::TypeSlice)) {
-        if (parent.second != result.second && result.second != AbaciValue::None) {
-            UnexpectedError2(AssignMismatch, typeToString(parent.second), typeToString(result.second));
+    if (!assign.calls.empty()) {
+        if (assign.calls.back().call.index() == CallList::TypeIndexes) {
+            if (type != result.second && result.second != AbaciValue::None) {
+                UnexpectedError2(AssignMismatch, typeToString(parent.second), typeToString(result.second));
+            }
+        }
+        else if (assign.calls.back().call.index() == CallList::TypeSlice) {
+            if (parent.second != result.second && result.second != AbaciValue::None) {
+                UnexpectedError2(AssignMismatch, typeToString(parent.second), typeToString(result.second));
+            }
+        }
+        else if (type != result.second) {
+            UnexpectedError1(VariableType, name);
         }
     }
     else if (type != result.second) {
