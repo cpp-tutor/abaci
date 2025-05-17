@@ -19,7 +19,6 @@ namespace abaci::lib {
 
 using abaci::utility::AbaciValue;
 
-static std::size_t validIndex(int64_t index, std::size_t limit, bool isSlice);
 static std::size_t utf8StrLen(const char8_t *str, std::size_t sz);
 static const char8_t *utf8StrPos(const char8_t *str, std::size_t index);
 
@@ -202,14 +201,17 @@ List *sliceList(List *existing, std::size_t indexBegin, std::size_t indexEnd) {
     return object;
 }
 
-List *spliceList(List *object, std::size_t indexBegin, std::size_t indexEnd, List *splice) {
+List *spliceList(List *object, std::size_t indexBegin, std::size_t indexEnd, List *splice, bool needDeleted) {
+    List *deleted = nullptr;
     indexBegin = validIndex(indexBegin, object->length + 1, true);
     indexEnd = validIndex(indexEnd, object->length + 1, true);
     if (indexBegin > indexEnd) {
         indexBegin = indexEnd;
     }
-    List *deleted = makeList(indexEnd - indexBegin);
-    memcpy(deleted->elements, object->elements + indexBegin, (indexEnd - indexBegin) * sizeof(AbaciValue));
+    if (needDeleted && (indexEnd - indexBegin) != 0) {
+        deleted = makeList(indexEnd - indexBegin);
+        memcpy(deleted->elements, object->elements + indexBegin, (indexEnd - indexBegin) * sizeof(AbaciValue));
+    }
     if (splice == nullptr) {
         memmove(object->elements + indexBegin, object->elements + indexEnd, (object->length - indexEnd) * sizeof(AbaciValue));
         object->length -= indexEnd - indexBegin;
