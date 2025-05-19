@@ -351,19 +351,9 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
     ExprCodeGen expr(jit, locals, temps);
     expr(assign.value);
     auto result = expr.get();
-    if (!assign.calls.empty()) {
-        if (assign.calls.back().call.index() == CallList::TypeIndexes) {
-            if (type != result.second && result.second != AbaciValue::None) {
-                UnexpectedError2(AssignMismatch, typeToString(parent.second), typeToString(result.second));
-            }
-        }
-        else if (assign.calls.back().call.index() == CallList::TypeSlice) {
-            if (parent.second != result.second && result.second != AbaciValue::None) {
-                UnexpectedError2(AssignMismatch, typeToString(parent.second), typeToString(result.second));
-            }
-        }
-        else if (type != result.second) {
-            UnexpectedError1(VariableType, name);
+    if (!assign.calls.empty() && (assign.calls.back().call.index() == CallList::TypeIndexes || assign.calls.back().call.index() == CallList::TypeSlice)) {
+        if (parent.second != result.second && result.second != AbaciValue::None) {
+            UnexpectedError2(AssignMismatch, typeToString(parent.second), typeToString(result.second));
         }
     }
     else if (type != result.second) {
@@ -447,16 +437,18 @@ void StmtCodeGen::codeGen(const AssignStmt& assign) const {
     else if (assign.calls.back().call.index() == CallList::TypeSlice) {
         if (typeToScalar(removeConstFromType(parent.second)) == AbaciValue::List) {
             Value *deletedElements;
+            std::shared_ptr<TypeList> typePtr = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(type));
+            Assert(typePtr != nullptr);
             if (result.second != AbaciValue::None) {
                 Assert(parent.second == result.second);
                 Value *clonedValue = cloneValue(jit, result.first, result.second);
                 deletedElements = builder.CreateCall(module.getFunction("spliceList"), { parent.first, sliceBegin, sliceEnd, clonedValue,
-                    ConstantInt::get(builder.getInt1Ty(), typeToScalar(removeConstFromType(type)) > AbaciValue::Floating) });
+                    ConstantInt::get(builder.getInt1Ty(), typeToScalar(removeConstFromType(typePtr->elementType)) > AbaciValue::Floating) });
                 builder.CreateCall(module.getFunction("destroyList"), { clonedValue });
             }
             else {
                 deletedElements = builder.CreateCall(module.getFunction("spliceList"), { parent.first, sliceBegin, sliceEnd, ConstantPointerNull::get(PointerType::get(jit.getNamedType("struct.List"), 0)),
-                    ConstantInt::get(builder.getInt1Ty(), typeToScalar(removeConstFromType(type)) > AbaciValue::Floating) });
+                    ConstantInt::get(builder.getInt1Ty(), typeToScalar(removeConstFromType(typePtr->elementType)) > AbaciValue::Floating) });
             }
             Value *needDestroy = builder.CreateICmpNE(deletedElements, ConstantPointerNull::get(PointerType::get(jit.getNamedType("struct.List"), 0)));
             BasicBlock *destroyBlock = BasicBlock::Create(jit.getContext(), "", jit.getFunction());
