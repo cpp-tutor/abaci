@@ -136,7 +136,7 @@ String *concatString(String *str1, String *str2) {
 
 std::size_t validIndex(int64_t index, std::size_t limit, bool isSlice) {
     std::size_t positiveIndex = (index >= 0) ? index : limit + index - isSlice;
-    if (positiveIndex >= limit) {
+    if (positiveIndex >= (limit + isSlice)) {
         LogicError2(IndexOutOfRange, index, limit);
     }
     return positiveIndex;
@@ -149,8 +149,8 @@ String *indexString(String *object, std::size_t index) {
 }
 
 String *sliceString(String *object, std::size_t indexBegin, std::size_t indexEnd) {
-    indexBegin = validIndex(indexBegin, object->utf8Length + 1, true);
-    indexEnd = validIndex(indexEnd, object->utf8Length + 1, true);
+    indexBegin = validIndex(indexBegin, object->utf8Length, true);
+    indexEnd = validIndex(indexEnd, object->utf8Length, true);
     if (indexBegin > indexEnd) {
         indexBegin = indexEnd;
     }
@@ -159,8 +159,8 @@ String *sliceString(String *object, std::size_t indexBegin, std::size_t indexEnd
 }
 
 void spliceString(String *object, std::size_t indexBegin, std::size_t indexEnd, String *splice) {
-    indexBegin = validIndex(indexBegin, object->length + 1, true);
-    indexEnd = validIndex(indexEnd, object->length + 1, true);
+    indexBegin = validIndex(indexBegin, object->length, true);
+    indexEnd = validIndex(indexEnd, object->length, true);
     if (indexBegin > indexEnd) {
         indexBegin = indexEnd;
     }
@@ -190,8 +190,8 @@ void spliceString(String *object, std::size_t indexBegin, std::size_t indexEnd, 
 }
 
 List *sliceList(List *existing, std::size_t indexBegin, std::size_t indexEnd) {
-    indexBegin = validIndex(indexBegin, existing->length + 1, true);
-    indexEnd = validIndex(indexEnd, existing->length + 1, true);
+    indexBegin = validIndex(indexBegin, existing->length, true);
+    indexEnd = validIndex(indexEnd, existing->length, true);
     if (indexBegin > indexEnd) {
         indexBegin = indexEnd;
     }
@@ -203,8 +203,8 @@ List *sliceList(List *existing, std::size_t indexBegin, std::size_t indexEnd) {
 
 List *spliceList(List *object, std::size_t indexBegin, std::size_t indexEnd, List *splice, bool needDeleted) {
     List *deleted = nullptr;
-    indexBegin = validIndex(indexBegin, object->length + 1, true);
-    indexEnd = validIndex(indexEnd, object->length + 1, true);
+    indexBegin = validIndex(indexBegin, object->length, true);
+    indexEnd = validIndex(indexEnd, object->length, true);
     if (indexBegin > indexEnd) {
         indexBegin = indexEnd;
     }
