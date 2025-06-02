@@ -48,12 +48,12 @@ set(LIB_SOURCES
     src/engine/JIT.cpp
 )
 
-add_library(abaci_lib STATIC ${LIB_SOURCES})
+add_library(abaci0 STATIC ${LIB_SOURCES})
 
 add_executable(abaci src/main.cpp)
 
 llvm_map_components_to_libnames(LLVM_LIBS core executionengine interpreter analysis native bitwriter orcjit)
-target_link_libraries(abaci abaci_lib ${LLVM_LIBS})
+target_link_libraries(abaci abaci0 ${LLVM_LIBS})
 
 if (NOT ABACI_USE_STD_FORMAT)
     target_link_libraries(abaci fmt::fmt)
@@ -71,7 +71,7 @@ set(TEST_SOURCES
 )
 
 add_executable(abacitests EXCLUDE_FROM_ALL ${SOURCES} ${TEST_SOURCES})
-target_link_libraries(abacitests abaci_lib ${LLVM_LIBS} Boost::unit_test_framework)
+target_link_libraries(abacitests abaci0 ${LLVM_LIBS} Boost::unit_test_framework)
 if (NOT ABACI_USE_STD_FORMAT)
     target_link_libraries(abacitests fmt::fmt)
 endif()
