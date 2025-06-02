@@ -201,6 +201,28 @@ b <- f(b)
 g()
 ```
 
+### Native function call
+
+For C or C++ functions linked to the executable the `native` keyword makes them available in the interpreter.
+
+```
+native fn sin(f64) -> f64
+native fn puts(i8*) -> none
+```
+
+Note that the types are different from regular Abaci types, they are:
+
+`i1 i8 i16 i32 i64 f32 f64 i8* none`
+
+and convert from `int`, `float` and `str` automatically.
+
+Call syntax is the same as for regular functions:
+
+```
+print sin(3.14 / 2)
+puts("Abaci")
+```
+
 ### Class definition
 
 ```
@@ -258,6 +280,8 @@ msbuild Abaci.sln -t:abacitests -p:Configuration=Release -m
 * **0.1.4** (2024-Dec-21): Tenth release with full support for string indexing
 
 * **0.2.0** (2025-May-18): Strings assumed to use UTF-8 encoding, splicing and slicing support for lists and strings, library can throw exceptions for Windows build
+
+* **0.2.1** (2025-Jun-02): Added support for native functions, libraries must be already linked to executable to use functions from them.
 
 ## License
 
