@@ -14,6 +14,7 @@ namespace abaci::ast {
 
 using abaci::utility::LocalSymbols;
 using abaci::utility::Temporaries;
+using abaci::utility::NativeType;
 using boost::spirit::x3::position_tagged;
 
 struct StmtNode;
@@ -118,6 +119,12 @@ struct MethodCall {
     ExprList args;
 };
 
+struct NativeFunction {
+    Variable name;
+    std::vector<NativeType> params;
+    NativeType result;
+};
+
 struct ExpressionStmt {
     ExprNode expression;
 };
@@ -126,7 +133,7 @@ struct StmtNode {
     StmtNode() = default;
     template<typename T>
     explicit StmtNode(const T& data) : data{ data } {} 
-    std::variant<CommentStmt,PrintStmt,InitStmt,AssignStmt,IfStmt,WhileStmt,RepeatStmt,CaseStmt,Function,FunctionCall,ReturnStmt,ExprFunction,Class,MethodCall,ExpressionStmt> data;
+    std::variant<CommentStmt,PrintStmt,InitStmt,AssignStmt,IfStmt,WhileStmt,RepeatStmt,CaseStmt,Function,FunctionCall,ReturnStmt,ExprFunction,Class,MethodCall,NativeFunction,ExpressionStmt> data;
 };
 
 } // namespace abaci::ast
@@ -150,6 +157,7 @@ BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ReturnStmt, expression)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExprFunction, name, parameters, expression)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Class, name, variables, methods)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodCall, name, memberList, method, args)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::NativeFunction, name, params, result)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExpressionStmt, expression)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::StmtList, statements)
 

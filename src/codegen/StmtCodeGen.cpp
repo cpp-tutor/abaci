@@ -33,11 +33,13 @@ using abaci::ast::ReturnStmt;
 using abaci::ast::ExprFunction;
 using abaci::ast::Class;
 using abaci::ast::MethodCall;
+using abaci::ast::NativeFunction;
 using abaci::ast::ExpressionStmt;
 using abaci::utility::Operator;
 using abaci::utility::GlobalSymbols;
 using abaci::utility::typeToScalar;
 using abaci::utility::addConstToType;
+using abaci::utility::nativeTypeToType;
 using abaci::utility::isConstant;
 using abaci::utility::TypeInstance;
 using abaci::utility::TypeBase;
@@ -45,6 +47,8 @@ using abaci::utility::TypeList;
 using abaci::utility::getContextValue;
 using abaci::utility::storeMutableValue;
 using abaci::utility::storeGlobalValue;
+using abaci::engine::Cache;
+using abaci::engine::LLVMType;
 
 void StmtCodeGen::operator()(const StmtList& stmts, BasicBlock *exitBlock) const {
     if (!stmts.statements.empty()) {
@@ -609,17 +613,36 @@ void StmtCodeGen::codeGen([[maybe_unused]] const Function& function) const {
 
 template<>
 void StmtCodeGen::codeGen(const FunctionCall& functionCall) const {
-    std::vector<Value*> arguments;
-    std::vector<Type> types;
-    for (const auto& arg : functionCall.args) {
-        ExprCodeGen expr(jit, locals, temps);
-        expr(arg);
-        auto result = expr.get();
-        arguments.push_back(result.first);
-        types.push_back(result.second);
+    auto functionType = jit.getCache()->getCacheType(functionCall.name);
+    switch (functionType) {
+        case Cache::CacheFunction: {
+            std::vector<Value*> arguments;
+            std::vector<Type> types;
+            for (const auto& arg : functionCall.args) {
+                ExprCodeGen expr(jit, locals, temps);
+                expr(arg);
+                auto result = expr.get();
+                arguments.push_back(result.first);
+                types.push_back(result.second);
+            }
+            auto type = jit.getCache()->getFunctionInstantiationType(functionCall.name, types);
+            builder.CreateCall(module.getFunction(mangled(functionCall.name, types)), arguments);
+            break;
+        }
+        case Cache::CacheNativeFunction: {
+            FunctionValueCall redirectCall;
+            redirectCall.name = functionCall.name;
+            redirectCall.args = functionCall.args;
+            ExprCodeGen expr(jit, locals, temps);
+            ExprNode parentNode;
+            parentNode.data = redirectCall;
+            expr(parentNode);
+            break;
+        }
+        case Cache::CacheClass:
+        case Cache::CacheNone:
+            UnexpectedError1(FunctionNotExist, functionCall.name);
     }
-    auto type = jit.getCache()->getFunctionInstantiationType(functionCall.name, types);
-    builder.CreateCall(module.getFunction(mangled(functionCall.name, types)), arguments);
 }
 
 template<>
@@ -726,6 +749,16 @@ void StmtCodeGen::codeGen(const MethodCall& methodCall) const {
     else {
         UnexpectedError1(BadObject, name);
     }
+}
+
+template<>
+void StmtCodeGen::codeGen([[maybe_unused]] const NativeFunction& nativeFn) const {
+    const auto& nativeFunction = jit.getCache()->getNativeFunction(nativeFn.name.name);
+    std::vector<LLVMType> paramTypes;
+    for (const auto& type : nativeFunction.parameterTypes) {
+        paramTypes.push_back(typeToLLVMType(jit, nativeTypeToType(type)));
+    }
+    jit.addJITFunction(nativeFunction.name, paramTypes, typeToLLVMType(jit, nativeTypeToType(nativeFunction.returnType)));
 }
 
 template<>

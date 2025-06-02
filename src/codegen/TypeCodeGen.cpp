@@ -36,6 +36,7 @@ using abaci::ast::ReturnStmt;
 using abaci::ast::ExprFunction;
 using abaci::ast::Class;
 using abaci::ast::MethodCall;
+using abaci::ast::NativeFunction;
 using abaci::ast::ExpressionStmt;
 using abaci::utility::Operator;
 using abaci::utility::GlobalSymbols;
@@ -44,10 +45,12 @@ using abaci::utility::removeConstFromType;
 using abaci::utility::addConstToType;
 using abaci::utility::typeToScalar;
 using abaci::utility::typeToString;
+using abaci::utility::nativeTypeToType;
 using abaci::utility::operatorToString;
 using abaci::utility::TypeInstance;
 using abaci::utility::TypeList;
 using abaci::utility::TypeBase;
+using abaci::utility::NativeType;
 using abaci::utility::ValidConversions;
 using abaci::utility::TypeConversions;
 
@@ -364,6 +367,23 @@ void TypeEvalGen::codeGen(const FunctionValueCall& call) const {
                 object->variableTypes.push_back(expr.get());
             }
             push(object);
+            break;
+        }
+        case Cache::CacheNativeFunction: {
+            const auto& nativeFunction = cache->getNativeFunction(call.name);
+            auto iter = nativeFunction.parameterTypes.cbegin();
+            for (const auto& arg : call.args) {
+                if (*iter == NativeType::none) {
+                    LogicError2(ArgumentType, static_cast<int>(iter - nativeFunction.parameterTypes.cbegin()), call.name);
+                }
+                TypeEvalGen expr(context, cache, locals);
+                expr(arg);
+                if (expr.get() != nativeTypeToType(*iter++)) {
+                    LogicError2(ArgumentType, static_cast<int>(iter - nativeFunction.parameterTypes.cbegin()), call.name);
+                }
+            }
+            auto nativeReturnType = nativeTypeToType(nativeFunction.returnType);
+            push(nativeReturnType);
             break;
         }
         default:
@@ -841,19 +861,43 @@ void TypeCodeGen::codeGen(const Function& function) const {
 
 template<>
 void TypeCodeGen::codeGen(const FunctionCall& functionCall) const {
-    const auto& cacheFunction = cache->getFunction(functionCall.name);
-    std::vector<Type> types;
-    for (const auto& arg : functionCall.args) {
-        TypeEvalGen expr(context, cache, locals);
-        expr(arg);
-        types.push_back(expr.get());
+    const auto functionType = cache->getCacheType(functionCall.name);
+    switch (functionType) {
+        case Cache::CacheFunction: {
+            const auto& cacheFunction = cache->getFunction(functionCall.name);
+            std::vector<Type> types;
+            for (const auto& arg : functionCall.args) {
+                TypeEvalGen expr(context, cache, locals);
+                expr(arg);
+                types.push_back(expr.get());
+            }
+            LocalSymbols params;
+            for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
+                auto type = *argType++;
+                params.add(parameter.name, nullptr, addConstToType(type));
+            }
+            cache->addFunctionInstantiation(functionCall.name, types, &params, context);
+            break;
+        }
+        case Cache::CacheNativeFunction: {
+            const auto& cacheNativeFunction = cache->getNativeFunction(functionCall.name);
+            auto iter = cacheNativeFunction.parameterTypes.cbegin();
+            for (const auto& arg : functionCall.args) {
+                if (*iter == NativeType::none) {
+                    LogicError2(ArgumentType, static_cast<int>(iter - cacheNativeFunction.parameterTypes.cbegin()), functionCall.name);
+                }
+                TypeEvalGen expr(context, cache, locals);
+                expr(arg);
+                if (expr.get() != nativeTypeToType(*iter++)) {
+                    LogicError2(ArgumentType, static_cast<int>(iter - cacheNativeFunction.parameterTypes.cbegin()), functionCall.name);
+                }
+            }
+            break;
+        }
+        case Cache::CacheClass:
+        case Cache::CacheNone:
+            LogicError1(FunctionNotExist, functionCall.name);
     }
-    LocalSymbols params;
-    for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
-        auto type = *argType++;
-        params.add(parameter.name, nullptr, addConstToType(type));
-    }
-    cache->addFunctionInstantiation(functionCall.name, types, &params, context);
 }
 
 template<>
@@ -953,6 +997,11 @@ void TypeCodeGen::codeGen(const MethodCall& methodCall) const {
     else {
         LogicError1(BadObject, name);
     }
+}
+
+template<>
+void TypeCodeGen::codeGen(const NativeFunction& nativeFn) const {
+    cache->addNativeFunction(nativeFn.name.name, nativeFn.params, nativeFn.result);
 }
 
 template<>

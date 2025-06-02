@@ -31,6 +31,8 @@ using abaci::utility::Operators;
 using abaci::utility::Complex;
 using abaci::utility::String;
 using abaci::utility::TypeConversions;
+using abaci::utility::NativeType;
+using abaci::utility::NativeTypes;
 
 using abaci::ast::ExprNode;
 using abaci::ast::ExprList;
@@ -63,6 +65,7 @@ using abaci::ast::ReturnStmt;
 using abaci::ast::ExprFunction;
 using abaci::ast::Class;
 using abaci::ast::MethodCall;
+using abaci::ast::NativeFunction;
 using abaci::ast::ExpressionStmt;
 
 struct error_handler {
@@ -91,17 +94,22 @@ struct number_str_class;
 struct base_number_str_class;
 struct boolean_str_class;
 struct string_str_class;
+struct value_class;
+struct native_type_class;
 
 x3::rule<struct number_str_class, std::string> number_str;
 x3::rule<struct base_number_str_class, std::string> base_number_str;
 x3::rule<struct boolean_str_class, std::string> boolean_str;
 x3::rule<struct string_str_class, std::string> string_str;
 x3::rule<struct value_class, std::size_t> value;
+x3::rule<struct native_type_class, NativeType> const native_type;
 
 struct number_str_class : x3::annotate_on_success {};
 struct base_number_str_class : x3::annotate_on_success {};
 struct boolean_str_class : x3::annotate_on_success {};
 struct string_str_class : x3::annotate_on_success {};
+struct value_class : x3::annotate_on_success {};
+struct native_type_class : x3::annotate_on_success {};
 
 x3::rule<class plus, Operator> const plus;
 x3::rule<class minus, Operator> const minus;
@@ -247,6 +255,9 @@ struct this_call_items_class;
 struct method_call_class;
 struct expression_stmt_items_class;
 struct expression_stmt_class;
+struct native_call_args_class;
+struct native_function_items_class;
+struct native_function_class;
 struct statement_class;
 struct block_class;
 
@@ -286,6 +297,9 @@ x3::rule<struct this_call_items_class, MethodCall> const this_call_items;
 x3::rule<struct method_call_class, StmtNode> const method_call;
 x3::rule<struct expression_stmt_items_class, ExpressionStmt> const expression_stmt_items;
 x3::rule<struct expression_stmt_class, StmtNode> const expression_stmt;
+x3::rule<struct native_call_args_class, std::vector<NativeType>> const native_call_args;
+x3::rule<struct native_function_items_class, NativeFunction> const native_function_items;
+x3::rule<struct native_function_class, StmtNode> const native_function;
 x3::rule<struct keywords, std::string> const keywords;
 x3::rule<struct statment_class, StmtNode> const statement;
 x3::rule<struct block_class, StmtList> const block;
@@ -326,6 +340,8 @@ struct method_call_items_class : error_handler, x3::annotate_on_success {};
 struct method_call_class : error_handler, x3::annotate_on_success {};
 struct expression_stmt_items_class : error_handler, x3::annotate_on_success {};
 struct expression_stmt_class : error_handler, x3::annotate_on_success {};
+struct native_function_items_class : error_handler, x3::annotate_on_success {};
+struct native_function_class : error_handler, x3::annotate_on_success {};
 struct statement_class : error_handler, x3::annotate_on_success {};
 struct block_class : error_handler, x3::annotate_on_success {};
 
@@ -422,6 +438,15 @@ auto makeList = [](auto& ctx){
 auto makeEmptyList = [](auto& ctx){
     const EmptyListItems& items = _attr(ctx);
     _val(ctx) = List{ std::make_shared<ExprList>(), items.elementType };
+};
+
+auto makeNative = [](auto& ctx){
+    const std::string type = get<std::string>(_attr(ctx));
+    auto iter = NativeTypes.find(type);;
+    if (iter == NativeTypes.end()) {
+        UnexpectedError0(BadType);
+    }
+    _val(ctx) = iter->second;
 };
 
 template<std::size_t Ty = ExprNode::Unset>
@@ -589,10 +614,15 @@ const auto this_call_items_def = this_ptr >> DOT >> *( variable >> DOT ) >> iden
 const auto method_call_items_def = variable >> DOT >> *( variable >> DOT ) >> identifier >> call_args;
 const auto method_call_def = this_call_items[MakeStmt<MethodCall>()] | method_call_items[MakeStmt<MethodCall>()];
 
+const auto native_type_def = lexeme[string(NONE) | string(I8_STAR) | string(I1) | string(I8) | string(I16) | string(I32) | string(I64) | string(F32) | string(F64)][makeNative];
+const auto native_call_args_def = LEFT_PAREN >> -( native_type >> *( COMMA >> native_type) ) >> RIGHT_PAREN;
+const auto native_function_items_def = identifier >> native_call_args >> TO >> native_type;
+const auto native_function_def = lit(NATIVE) >> FN >> native_function_items[MakeStmt<NativeFunction>()];
+
 const auto expression_stmt_items_def = expression;
 const auto expression_stmt_def = expression_stmt_items[MakeStmt<ExpressionStmt>()];
 
-const auto statement_def = assign_stmt | print_stmt | expression_function | let_stmt | if_stmt | while_stmt | repeat_stmt | case_stmt | return_stmt | function | class_template | method_call | function_call | expression_stmt | comment;
+const auto statement_def = native_function | assign_stmt | print_stmt | expression_function | let_stmt | if_stmt | while_stmt | repeat_stmt | case_stmt | return_stmt | function | class_template | method_call | function_call | expression_stmt | comment;
 const auto block_def = *statement;
 
 BOOST_SPIRIT_DEFINE(number_str, base_number_str, boolean_str, string_str, value)
@@ -610,6 +640,7 @@ BOOST_SPIRIT_DEFINE(identifier, variable, function_value_call,
     comment_items, comment, print_items, print_stmt,
     let_items, let_stmt, assign_list, assign_items, assign_stmt, if_items, if_stmt,
     when_items, while_items, while_stmt, repeat_items, repeat_stmt, case_items, case_stmt,
+    native_type, native_call_args, native_function, native_function_items,
     function_parameters, function_items, function, call_args, call_items, function_call,
     expression_function_items, expression_function,
     return_items, return_stmt, class_items, class_template,

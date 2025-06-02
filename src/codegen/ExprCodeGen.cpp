@@ -23,6 +23,7 @@ using abaci::ast::CallList;
 using abaci::ast::MultiCall;
 using abaci::lib::makeString;
 using abaci::utility::AbaciValue;
+using abaci::utility::NativeType;
 using abaci::utility::Operator;
 using abaci::utility::TypeBase;
 using abaci::utility::LocalSymbols;
@@ -31,6 +32,7 @@ using abaci::utility::LocalSymbols;
 using abaci::utility::mangled;
 using abaci::utility::removeConstFromType;
 using abaci::utility::typeToScalar;
+using abaci::utility::nativeTypeToType;
 using abaci::utility::TypeList;
 using abaci::utility::TypeInstance;
 using abaci::utility::TypeConversions;
@@ -678,6 +680,83 @@ void ExprCodeGen::codeGen(const FunctionValueCall& call) const {
             }
             temps->addTemporary({ instance, instanceType });
             push({ instance, instanceType });
+            break;
+        }
+        case Cache::CacheNativeFunction: {
+            std::vector<Value*> arguments;
+            std::vector<NativeType> nativeTypes = jit.getCache()->getNativeFunction(call.name).parameterTypes;
+            auto iter = nativeTypes.cbegin();
+            for (const auto& arg : call.args) {
+                ExprCodeGen expr(jit, locals, temps);
+                expr(arg);
+                auto result = expr.get();
+                Value *conversion;
+                switch (*iter++) {
+                    case NativeType::none:
+                        conversion = ConstantPointerNull::get(PointerType::get(jit.getNamedType("struct.Instance"), 0));
+                        break;
+                    case NativeType::i8:
+                        conversion = builder.CreateBitCast(result.first, builder.getInt8Ty());
+                        break;
+                    case NativeType::i16:
+                        conversion = builder.CreateBitCast(result.first, builder.getInt16Ty());
+                        break;
+                    case NativeType::i32:
+                        conversion = builder.CreateBitCast(result.first, builder.getInt32Ty());
+                        break;
+                    case NativeType::f32:
+                        conversion = builder.CreateFPTrunc(result.first, builder.getFloatTy());
+                        break;
+                    case NativeType::i8star: {
+                        Value *stringData = builder.CreateLoad(builder.getInt8PtrTy(), builder.CreateStructGEP(jit.getNamedType("struct.String"), result.first, 0));
+                        Value *length = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.String"), result.first, 2));
+                        conversion = builder.CreateAlloca(builder.getInt8Ty(), builder.CreateAdd(length, builder.getInt64(1)));
+                        builder.CreateMemCpy(conversion, MaybeAlign(0), stringData, MaybeAlign(0), length);
+                        builder.CreateStore(ConstantInt::get(builder.getInt8Ty(), 0), builder.CreateGEP(builder.getInt8Ty(), conversion, length ));
+                        break;
+                    }
+                    case NativeType::i1:
+                    case NativeType::i64:
+                    case NativeType::f64:
+                        conversion = result.first;
+                        break;
+                    default:
+                        UnexpectedError0(BadType);
+                }
+                arguments.push_back(conversion);
+            }
+            auto type = nativeTypeToType(jit.getCache()->getNativeFunction(call.name).returnType);
+            auto result = builder.CreateCall(module.getFunction(call.name), arguments);
+            Value *conversion;
+            switch (jit.getCache()->getNativeFunction(call.name).returnType) {
+                case NativeType::none:
+                    conversion = ConstantPointerNull::get(PointerType::get(jit.getNamedType("struct.Instance"), 0));
+                    break;
+                case NativeType::i8:
+                    conversion = builder.CreateBitCast(result, builder.getInt64Ty());
+                    break;
+                case NativeType::i16:
+                    conversion = builder.CreateBitCast(result, builder.getInt64Ty());
+                    break;
+                case NativeType::i32:
+                    conversion = builder.CreateBitCast(result, builder.getInt64Ty());
+                    break;
+                case NativeType::f32:
+                    conversion = builder.CreateFPExt(result, builder.getDoubleTy());
+                    break;
+                case NativeType::i8star: {
+                    auto length = builder.CreateCall(module.getFunction("strlen"), result);
+                    conversion = builder.CreateCall(module.getFunction("makeString"), { result, length });
+                    break;
+                }
+                case NativeType::i1:
+                case NativeType::i64:
+                case NativeType::f64:
+                    conversion = result;
+                    break;
+            }
+            temps->addTemporary({ conversion, type });
+            push({ conversion, type });
             break;
         }
         default:

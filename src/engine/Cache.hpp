@@ -14,6 +14,7 @@
 namespace abaci::engine {
 
 using abaci::ast::Variable;
+using abaci::ast::NativeType;
 using abaci::ast::StmtList;
 using abaci::utility::AbaciValue;
 using abaci::utility::Type;
@@ -35,21 +36,31 @@ public:
         std::vector<Type> parameterTypes;
         Type returnType;
     };
-    enum CacheType{ CacheClass, CacheFunction, CacheNone };
+    struct NativeFunction {
+        std::string name;
+        std::vector<NativeType> parameterTypes;
+        NativeType returnType;
+        void *functionPtr;
+    };
+    enum CacheType{ CacheClass, CacheFunction, CacheNativeFunction, CacheNone };
     Cache() = default;
     void addClassTemplate(const std::string& name, const std::vector<Variable>& variables, const std::vector<std::string>& methods);
     void addFunctionTemplate(const std::string& name, const std::vector<Variable>& parameters, const StmtList& body);
+    void addNativeFunction(const std::string& name, const std::vector<NativeType>& parameters, NativeType result);
     void addFunctionInstantiation(const std::string& name, const std::vector<Type>& types, LocalSymbols *params, Context *context);
     Type getFunctionInstantiationType(const std::string& name, const std::vector<Type>& types) const;
     CacheType getCacheType(const std::string& name) const;
     const Function& getFunction(const std::string& name) const;
     const Class& getClass(const std::string& name) const;
+    const NativeFunction& getNativeFunction(const std::string& name) const;
     unsigned getMemberIndex(const Class& cacheClass, const Variable& member) const;
     const auto& getInstantiations() const { return instantiations; }
+    const auto& getNativeFunctions() const { return nativeFunctions; }
     void clearInstantiations() { instantiations.clear(); }
 private:
     std::unordered_map<std::string,Class> classes;
     std::unordered_map<std::string,Function> functions;
+    std::vector<NativeFunction> nativeFunctions;
     std::vector<Instantiation> instantiations;
 };
 

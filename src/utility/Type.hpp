@@ -59,8 +59,11 @@ struct TypeList : TypeBase {
     Type elementType;
 };
 
+enum class NativeType { none, i1, i8, i16, i32, i64, f32, f64, i8star };
+
 AbaciValue::Type typeToScalar(const Type& type);
 std::string typeToString(const Type& type);
+AbaciValue::Type nativeTypeToType(const NativeType nativeType);
 bool isConstant(const Type& type);
 Type addConstToType(const Type& type);
 Type removeConstFromType(const Type& type);
@@ -70,6 +73,7 @@ bool operator==(const Type& lhs, const Type& rhs);
 using TypedValue = std::pair<llvm::Value*,Type>;
 extern const std::unordered_map<std::string,AbaciValue::Type> TypeConversions;
 extern const std::unordered_map<AbaciValue::Type,std::vector<AbaciValue::Type>> ValidConversions;
+extern const std::unordered_map<std::string,NativeType> NativeTypes;
 
 } // namespace abaci::utility
 

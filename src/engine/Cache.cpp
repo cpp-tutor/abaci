@@ -3,6 +3,13 @@
 #include "utility/Report.hpp"
 #include "localize/Messages.hpp"
 #include <algorithm>
+#ifdef _WIN64
+#include <windows.h>
+typedef HMODULE LibHandle;
+#else
+#include <dlfcn.h>
+typedef void* Libhandle;
+#endif
 
 namespace abaci::engine {
 
@@ -26,6 +33,37 @@ void Cache::addFunctionTemplate(const std::string& name, const std::vector<Varia
     }
     else {
         LogicError1(FunctionExists, name);
+    }
+}
+
+void Cache::addNativeFunction(const std::string& name, const std::vector<NativeType>& parameters, NativeType result) {
+    auto iter = std::find_if(nativeFunctions.cbegin(), nativeFunctions.cend(), [&name](const NativeFunction& elem){ return elem.name == name; });
+    if (iter == nativeFunctions.end()) {
+#if 0
+        const std::string libraryPath = "/lib/x86_64-linux-gnu/libm.so"; // TODO
+#ifdef _WIN64
+        auto libraryHandle = LoadLibrary(libraryPath.c_str());
+#else
+        auto libraryHandle = dlopen(libraryPath.c_str(), RTLD_LAZY);
+#endif
+        if (!libraryHandle) {
+            LogicError2(BadLibrary, libraryPath, name);
+        }
+#else
+        auto libraryHandle = nullptr;
+#endif
+#ifdef _WIN64
+        auto functionPtr = GetProcAddress(libraryHandle, name.c_str()))
+#else
+        auto functionPtr = dlsym(libraryHandle, name.c_str());
+#endif
+        if (!functionPtr) {
+            LogicError1(BadNativeFn, name);
+        }
+        nativeFunctions.push_back({ name, parameters, result, reinterpret_cast<void*>(functionPtr) });
+    }
+    else {
+        LogicError1(NativeDefined, name);
     }
 }
 
@@ -90,6 +128,14 @@ const Cache::Class& Cache::getClass(const std::string& name) const {
     UnexpectedError1(ClassNotExist, name);
 }
 
+const Cache::NativeFunction& Cache::getNativeFunction(const std::string& name) const {
+    auto iter = std::find_if(nativeFunctions.cbegin(), nativeFunctions.cend(), [&name](const NativeFunction& elem){ return elem.name == name; });
+    if (iter != nativeFunctions.cend()) {
+        return *iter;
+    }
+    UnexpectedError1(BadNativeFn, name);
+}
+
 unsigned Cache::getMemberIndex(const Class& cacheClass, const Variable& member) const {
     auto iter = std::find(cacheClass.variables.begin(), cacheClass.variables.end(), member);
     if (iter != cacheClass.variables.end()) {
@@ -106,6 +152,10 @@ Cache::CacheType Cache::getCacheType(const std::string& name) const {
     auto iter2 = classes.find(name);
     if (iter2 != classes.end()) {
         return CacheClass;
+    }
+    auto iter3 = std::find_if(nativeFunctions.cbegin(), nativeFunctions.cend(), [&name](const NativeFunction& elem){ return elem.name == name; });
+    if (iter3 != nativeFunctions.cend()) {
+        return CacheNativeFunction;
     }
     return CacheNone;
 }

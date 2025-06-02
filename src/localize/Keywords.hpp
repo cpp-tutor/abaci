@@ -23,6 +23,7 @@ SYMBOL(IMAG, "imag");
 SYMBOL(INPUT, "input");
 SYMBOL(INT, "int");
 SYMBOL(LET, "let");
+SYMBOL(NATIVE, "native");
 SYMBOL(NIL, "nil");
 SYMBOL(NOT, "not");
 SYMBOL(OR, "or");
@@ -74,6 +75,16 @@ SYMBOL(IMAGINARY, "j");
 SYMBOL(HEX_PREFIX, "0x");
 SYMBOL(OCT_PREFIX, "0");
 SYMBOL(BIN_PREFIX, "0b");
+
+SYMBOL(NONE, "none");
+SYMBOL(I1, "i1");
+SYMBOL(I8, "i8");
+SYMBOL(I16, "i16");
+SYMBOL(I32, "i32");
+SYMBOL(I64, "i64");
+SYMBOL(F32, "f32");
+SYMBOL(F64, "f64");
+SYMBOL(I8_STAR, "i8*");
 
 SYMBOL(THIS_V, "_this");
 SYMBOL(RETURN_V, "_return");

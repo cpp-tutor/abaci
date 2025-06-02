@@ -31,8 +31,6 @@ using abaci::utility::makeMutableValue;
 using abaci::utility::storeMutableValue;
 using abaci::utility::loadMutableValue;
 
-using LLVMType = llvm::Type*;
-
 using namespace llvm;
 using namespace llvm::orc;
 using namespace abaci::lib;
@@ -121,6 +119,16 @@ void JIT::initialize() {
     Function::Create(toTypeType, Function::ExternalLinkage, "toType", module.get());
     FunctionType *powFunctionType = FunctionType::get(builder.getDoubleTy(), { builder.getDoubleTy(), builder.getDoubleTy() }, false);
     Function::Create(powFunctionType, Function::ExternalLinkage, "pow", module.get());
+    FunctionType *strlenFunctionType = FunctionType::get(builder.getInt64Ty(), { builder.getInt8PtrTy() }, false);
+    Function::Create(strlenFunctionType, Function::ExternalLinkage, "strlen", module.get());
+    for (const auto& function : cache->getNativeFunctions()) {
+        std::vector<LLVMType> paramTypes;
+        for (const auto& type : function.parameterTypes) {
+            paramTypes.push_back(typeToLLVMType(*this, nativeTypeToType(type)));
+        }
+        FunctionType *functionType = FunctionType::get(typeToLLVMType(*this, nativeTypeToType(function.returnType)), paramTypes, false);
+        Function::Create(functionType, Function::ExternalLinkage, function.name, module.get());
+    }
     for (const auto& instantiation : cache->getInstantiations()) {
         std::string functionName{ mangled(instantiation.name, instantiation.parameterTypes) };
         std::vector<LLVMType> parameterTypes;
@@ -183,7 +191,7 @@ ExecFunctionType JIT::getExecFunction() {
         errs() << "Error detecting host: " << toString(JTMB.takeError()) << '\n';
     }
     auto opts = JTMB->getOptions();
-    opts.ExceptionModel = ExceptionHandling::WinEH; // Enable exception handling
+    opts.ExceptionModel = ExceptionHandling::WinEH;
 #ifdef _WIN64
     JTMB->setOptions(opts);
 #endif
@@ -228,7 +236,11 @@ ExecFunctionType JIT::getExecFunction() {
     RUNTIME_FUNCTION("destroyInstance", &destroyInstance)
     RUNTIME_FUNCTION("destroyList", &destroyList)
     RUNTIME_FUNCTION("pow", static_cast<double(*)(double,double)>(&pow))
+    RUNTIME_FUNCTION("strlen", &strlen)
     RUNTIME_FUNCTION("memcpy", &memcpy)
+    for (const auto& function : cache->getNativeFunctions()) {
+        RUNTIME_FUNCTION(function.name, function.functionPtr);
+    }
     if (auto err = (*jit)->getMainJITDylib().define(std::make_unique<AbsoluteSymbolsMaterializationUnit>(std::move(Symbols)))) {
         handleAllErrors(std::move(err), [&](ErrorInfoBase& eib) {
             errs() << "Error: " << eib.message() << '\n';

@@ -57,6 +57,27 @@ std::string typeToString(const Type& type) {
     return BadType;
 }
 
+AbaciValue::Type nativeTypeToType(const NativeType nativeType) {
+    switch (nativeType) {
+        case NativeType::none:
+            return AbaciValue::None;
+        case NativeType::i1:
+            return AbaciValue::Boolean;
+        case NativeType::i8:
+        case NativeType::i16:
+        case NativeType::i32:
+        case NativeType::i64:
+            return AbaciValue::Integer;
+        case NativeType::f32:
+        case NativeType::f64:
+            return AbaciValue::Floating;
+        case NativeType::i8star:
+            return AbaciValue::String;
+        default:
+            UnexpectedError0(BadType);
+    }
+}
+
 bool isConstant(const Type& type) {
     if (std::holds_alternative<AbaciValue::Type>(type)) {
         return std::get<AbaciValue::Type>(type) & AbaciValue::Constant;
@@ -232,6 +253,18 @@ const std::unordered_map<AbaciValue::Type,std::vector<AbaciValue::Type>> ValidCo
     { AbaciValue::String, { AbaciValue::Boolean, AbaciValue::Integer, AbaciValue::Floating, AbaciValue::Complex, AbaciValue::String } },
     { AbaciValue::Real, { AbaciValue::Complex } },
     { AbaciValue::Imag, { AbaciValue::Complex } }
+};
+
+const std::unordered_map<std::string,NativeType> NativeTypes {
+    { NONE, NativeType::none },
+    { I1, NativeType::i1 },
+    { I8, NativeType::i8 },
+    { I16, NativeType::i16 },
+    { I32, NativeType::i32 },
+    { I64, NativeType::i64 },
+    { F32, NativeType::f32 },
+    { F64, NativeType::f64 },
+    { I8_STAR, NativeType::i8star }
 };
 
 } // namespace abaci::utility

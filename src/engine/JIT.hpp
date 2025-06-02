@@ -19,11 +19,13 @@ using llvm::Module;
 using llvm::IRBuilder;
 using llvm::StructType;
 using llvm::Function;
+using llvm::FunctionType;
 using llvm::GlobalVariable;
 using llvm::orc::LLJITBuilder;
 using llvm::orc::LLJIT;
 using abaci::utility::AbaciValue;
 using abaci::utility::Context;
+using LLVMType = llvm::Type*;
 using ExecFunctionType = void(*)();
 
 class JIT {
@@ -37,6 +39,7 @@ class JIT {
     GlobalVariable *globalContext;
     LLJITBuilder jitBuilder;
     llvm::Expected<std::unique_ptr<LLJIT>> jit{ nullptr };
+    //std::unordered_map<std::string,void*> symbols;
     void initialize();
 public:
     JIT(const std::string& moduleName, const std::string& functionName, Context *runtimeContext, Cache *cache)
@@ -65,6 +68,10 @@ public:
             UnexpectedError1(NoType, name);
         }
         return type;
+    }
+    void addJITFunction(const std::string& name, const std::vector<LLVMType> parameterTypes, LLVMType returnType) {
+        auto *functionType = FunctionType::get(returnType, parameterTypes, false);
+        Function::Create(functionType, Function::ExternalLinkage, name, module.get());
     }
     ExecFunctionType getExecFunction();
     ~JIT() {

@@ -20,6 +20,7 @@ MESSAGE(BadOperatorForType, "Bad operator \'{}\' for type \'{}\'.");
 MESSAGE(ClassExists, "Class \'{}\' already exists.");
 MESSAGE(FunctionExists, "Function \'{}\' already exists.");
 MESSAGE(WrongArgs, "Wrong number of arguments (have {}, need {}).");
+MESSAGE(ArgumentType, "Wrong type of argument {} (for call to native function \'{}\').");
 MESSAGE(FunctionNotExist, "Function \'{}\' does not exist.");
 MESSAGE(NoInst, "No such instantiation for function \'{}\'.");
 MESSAGE(ClassNotExist, "Class \'{}\' does not exist.");
@@ -51,12 +52,15 @@ MESSAGE(FunctionTopLevel, "Functions must be defined at top-level.");
 MESSAGE(ReturnOnlyInFunction, "Return statement can only appear inside a function.");
 MESSAGE(FunctionTypeSet, "Function return type already set to different type.");
 MESSAGE(NoExpression, "Expression not permitted in this context.");
+MESSAGE(BadNativeFn, "Native function \'{}\' is not available.");
+MESSAGE(NativeDefined, "Native function \'{}\' is already defined.");
+MESSAGE(BadLibrary, "Could not load library \'{}\' (for native function \'{}\').");
 
 MESSAGE(InitialPrompt, "Abaci version {}\nEnter code, or \"{}\" to end:\n> ");
 MESSAGE(InputPrompt, "> ");
 MESSAGE(ContinuationPrompt, ". ");
 MESSAGE(SyntaxError, "Unrecognized input.");
-MESSAGE(Version, "0.2.0 (2025-May-18)");
+MESSAGE(Version, "0.2.1 (2025-Jun-02)");
 
 MESSAGE(BadVariableIndex, "Bad index of variable.");
 MESSAGE(BadTemporary, "Bad temporary.");
