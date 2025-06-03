@@ -708,7 +708,7 @@ void ExprCodeGen::codeGen(const FunctionValueCall& call) const {
                         conversion = builder.CreateFPTrunc(result.first, builder.getFloatTy());
                         break;
                     case NativeType::i8star: {
-                        Value *stringData = builder.CreateLoad(builder.getInt8PtrTy(), builder.CreateStructGEP(jit.getNamedType("struct.String"), result.first, 0));
+                        Value *stringData = builder.CreateLoad(PointerType::get(builder.getInt8Ty(), 0), builder.CreateStructGEP(jit.getNamedType("struct.String"), result.first, 0));
                         Value *length = builder.CreateLoad(builder.getInt64Ty(), builder.CreateStructGEP(jit.getNamedType("struct.String"), result.first, 2));
                         conversion = builder.CreateAlloca(builder.getInt8Ty(), builder.CreateAdd(length, builder.getInt64(1)));
                         builder.CreateMemCpy(conversion, MaybeAlign(0), stringData, MaybeAlign(0), length);

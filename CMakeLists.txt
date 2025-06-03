@@ -77,3 +77,8 @@ if (NOT ABACI_USE_STD_FORMAT)
 endif()
 
 add_custom_target(test abacitests)
+
+if (NOT ABACI_NO_USER_LIBRARY)
+    set(USER_SOURCES src/libuser.cpp)
+    add_library(user SHARED ${USER_SOURCES})
+endif()

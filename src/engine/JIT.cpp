@@ -119,7 +119,7 @@ void JIT::initialize() {
     Function::Create(toTypeType, Function::ExternalLinkage, "toType", module.get());
     FunctionType *powFunctionType = FunctionType::get(builder.getDoubleTy(), { builder.getDoubleTy(), builder.getDoubleTy() }, false);
     Function::Create(powFunctionType, Function::ExternalLinkage, "pow", module.get());
-    FunctionType *strlenFunctionType = FunctionType::get(builder.getInt64Ty(), { builder.getInt8PtrTy() }, false);
+    FunctionType *strlenFunctionType = FunctionType::get(builder.getInt64Ty(), { PointerType::get(builder.getInt8Ty(), 0) }, false);
     Function::Create(strlenFunctionType, Function::ExternalLinkage, "strlen", module.get());
     for (const auto& function : cache->getNativeFunctions()) {
         std::vector<LLVMType> paramTypes;

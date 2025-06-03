@@ -3,12 +3,22 @@
 #include "utility/Report.hpp"
 #include "localize/Messages.hpp"
 #include <algorithm>
+
+using namespace std::literals;
 #ifdef _WIN64
 #include <windows.h>
-typedef HMODULE LibHandle;
+typedef HMODULE LibraryHandle;
+#define LIBRARY_NAME "user"s
+#define LIBRARY_SUFFIX ".dll"s
+#define LIBRARY_PREFIX1 ""s
+#define LIBRARY_PREFIX2 "lib"s
 #else
 #include <dlfcn.h>
-typedef void* Libhandle;
+typedef void* LibraryHandle;
+#define LIBRARY_NAME ""s
+#define LIBRARY_SUFFIX ".so"s
+#define LIBRARY_PREFIX1 "./lib"s
+#define LIBRARY_PREFIX2 "lib"s
 #endif
 
 namespace abaci::engine {
@@ -36,24 +46,55 @@ void Cache::addFunctionTemplate(const std::string& name, const std::vector<Varia
     }
 }
 
+#ifdef _WIN64
+static std::wstring ConvertStringToWString(std::string&& str) {
+    std::wstring wstr;
+    int len = static_cast<int>(str.size());
+    int wideLen = 0;
+    int flags = MB_ERR_INVALID_CHARS;
+
+    if (MultiByteToWideChar(CP_UTF8, flags, reinterpret_cast<const char*>(str.c_str()), len, nullptr, 0) == 0) {
+        return wstr;
+    }
+    wideLen = MultiByteToWideChar(CP_UTF8, flags, reinterpret_cast<const char*>(str.c_str()), len, nullptr, 0);
+    if (wideLen <= 0) {
+        return wstr;
+    }
+
+    wstr.resize(wideLen);
+    if (MultiByteToWideChar(CP_UTF8, flags, reinterpret_cast<const char*>(str.c_str()), len, &wstr[0], wideLen) == 0) {
+        return std::wstring();
+    }
+    return wstr;
+}
+#endif
+
 void Cache::addNativeFunction(const std::string& name, const std::vector<NativeType>& parameters, NativeType result) {
     auto iter = std::find_if(nativeFunctions.cbegin(), nativeFunctions.cend(), [&name](const NativeFunction& elem){ return elem.name == name; });
     if (iter == nativeFunctions.end()) {
-#if 0
-        const std::string libraryPath = "/lib/x86_64-linux-gnu/libm.so"; // TODO
 #ifdef _WIN64
-        auto libraryHandle = LoadLibrary(libraryPath.c_str());
-#else
-        auto libraryHandle = dlopen(libraryPath.c_str(), RTLD_LAZY);
-#endif
+        std::wstring libraryName1 = ConvertStringToWString(LIBRARY_PREFIX1 + LIBRARY_NAME + LIBRARY_SUFFIX),
+            libraryName2 = ConvertStringToWString(LIBRARY_PREFIX2 + LIBRARY_NAME + LIBRARY_SUFFIX);
+        LibraryHandle libraryHandle = LIBRARY_NAME.empty() ? GetModuleHandle(NULL) : LoadLibrary(libraryName1.c_str());
         if (!libraryHandle) {
-            LogicError2(BadLibrary, libraryPath, name);
+            libraryHandle = LoadLibrary(libraryName2.c_str());
+            if (!libraryHandle) {
+                LogicError2(BadLibrary, LIBRARY_NAME, name);
+            }
         }
 #else
-        auto libraryHandle = nullptr;
+        std::string libraryName1 = LIBRARY_PREFIX1 + LIBRARY_NAME + LIBRARY_SUFFIX,
+            libraryName2 = LIBRARY_PREFIX2 + LIBRARY_NAME + LIBRARY_SUFFIX;
+        LibraryHandle libraryHandle = LIBRARY_NAME.empty() ? nullptr :  dlopen(libraryName1.c_str(), RTLD_LAZY);
+        if (!LIBRARY_NAME.empty() && !libraryHandle) {
+            libraryHandle = dlopen(libraryName1.c_str(), RTLD_LAZY);
+            if (!libraryHandle) {
+                LogicError2(BadLibrary, LIBRARY_NAME, name);
+            }
+        }
 #endif
 #ifdef _WIN64
-        auto functionPtr = GetProcAddress(libraryHandle, name.c_str()))
+        FARPROC functionPtr = GetProcAddress(libraryHandle, name.c_str());
 #else
         auto functionPtr = dlsym(libraryHandle, name.c_str());
 #endif
