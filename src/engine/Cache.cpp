@@ -3,19 +3,16 @@
 #include "utility/Report.hpp"
 #include "localize/Messages.hpp"
 #include <algorithm>
-
 using namespace std::literals;
 #ifdef _WIN64
 #include <windows.h>
 typedef HMODULE LibraryHandle;
-#define LIBRARY_NAME "user"s
 #define LIBRARY_SUFFIX ".dll"s
 #define LIBRARY_PREFIX1 ""s
 #define LIBRARY_PREFIX2 "lib"s
 #else
 #include <dlfcn.h>
-typedef void* LibraryHandle;
-#define LIBRARY_NAME ""s
+typedef void *LibraryHandle;
 #define LIBRARY_SUFFIX ".so"s
 #define LIBRARY_PREFIX1 "./lib"s
 #define LIBRARY_PREFIX2 "lib"s
@@ -25,6 +22,7 @@ namespace abaci::engine {
 
 using abaci::codegen::TypeCodeGen;
 using abaci::utility::mangled;
+using LibrariesMap = std::unordered_map<std::string,LibraryHandle>;
 
 void Cache::addClassTemplate(const std::string& name, const std::vector<Variable>& variables, const std::vector<std::string>& methods) {
     auto iter = classes.find(name);
@@ -69,28 +67,50 @@ static std::wstring ConvertStringToWString(std::string&& str) {
 }
 #endif
 
-void Cache::addNativeFunction(const std::string& name, const std::vector<NativeType>& parameters, NativeType result) {
+void Cache::addNativeFunction(const std::string& libraryName, const std::string& name, const std::vector<NativeType>& parameters, NativeType result) {
     auto iter = std::find_if(nativeFunctions.cbegin(), nativeFunctions.cend(), [&name](const NativeFunction& elem){ return elem.name == name; });
     if (iter == nativeFunctions.end()) {
+        if (!libraries) {
+            libraries = reinterpret_cast<void*>(new LibrariesMap);
+        }
+        LibraryHandle libraryHandle;
 #ifdef _WIN64
-        std::wstring libraryName1 = ConvertStringToWString(LIBRARY_PREFIX1 + LIBRARY_NAME + LIBRARY_SUFFIX),
-            libraryName2 = ConvertStringToWString(LIBRARY_PREFIX2 + LIBRARY_NAME + LIBRARY_SUFFIX);
-        LibraryHandle libraryHandle = LIBRARY_NAME.empty() ? GetModuleHandle(NULL) : LoadLibrary(libraryName1.c_str());
-        if (!libraryHandle) {
-            libraryHandle = LoadLibrary(libraryName2.c_str());
+        if (libraryName.empty()) {
+            libraryHandle = GetModuleHandle(NULL);
+        }
+        else if (auto iter = libraries.find(libraryName); iter != libraries.end()) {
+            libraryHandle = iter->second;
+        }
+        else {
+            std::wstring libraryName1 = ConvertStringToWString(LIBRARY_PREFIX1 + libraryName + LIBRARY_SUFFIX),
+                libraryName2 = ConvertStringToWString(LIBRARY_PREFIX2 + libraryName + LIBRARY_SUFFIX);
+            libraryHandle = LoadLibrary(libraryName1.c_str());
             if (!libraryHandle) {
-                LogicError2(BadLibrary, LIBRARY_NAME, name);
+                libraryHandle = LoadLibrary(libraryName2.c_str());
+                if (!libraryHandle) {
+                    LogicError2(BadLibrary, libraryName, name);
+                }
             }
+            reinterpret_cast<LibrariesMap*>(libraries)->insert({ libraryName, libraryHandle });
         }
 #else
-        std::string libraryName1 = LIBRARY_PREFIX1 + LIBRARY_NAME + LIBRARY_SUFFIX,
-            libraryName2 = LIBRARY_PREFIX2 + LIBRARY_NAME + LIBRARY_SUFFIX;
-        LibraryHandle libraryHandle = LIBRARY_NAME.empty() ? nullptr :  dlopen(libraryName1.c_str(), RTLD_LAZY);
-        if (!LIBRARY_NAME.empty() && !libraryHandle) {
+        if (libraryName.empty()) {
+            libraryHandle =  nullptr;
+        }
+        else if (auto iter = reinterpret_cast<LibrariesMap*>(libraries)->find(libraryName); iter != reinterpret_cast<LibrariesMap*>(libraries)->end()) {
+            libraryHandle = iter->second;
+        }
+        else {
+            std::string libraryName1 = LIBRARY_PREFIX1 + libraryName + LIBRARY_SUFFIX,
+                libraryName2 = LIBRARY_PREFIX2 + libraryName + LIBRARY_SUFFIX;
             libraryHandle = dlopen(libraryName1.c_str(), RTLD_LAZY);
-            if (!libraryHandle) {
-                LogicError2(BadLibrary, LIBRARY_NAME, name);
+            if (!libraryName.empty() && !libraryHandle) {
+                libraryHandle = dlopen(libraryName1.c_str(), RTLD_LAZY);
+                if (!libraryHandle) {
+                    LogicError2(BadLibrary, libraryName, name);
+                }
             }
+            reinterpret_cast<LibrariesMap*>(libraries)->insert({ libraryName, libraryHandle });
         }
 #endif
 #ifdef _WIN64
@@ -105,6 +125,19 @@ void Cache::addNativeFunction(const std::string& name, const std::vector<NativeT
     }
     else {
         LogicError1(NativeDefined, name);
+    }
+}
+
+Cache::~Cache() {
+    if (libraries) {
+        for (const auto& library : *reinterpret_cast<LibrariesMap*>(libraries)) {
+#ifdef _WIN64
+            FreeLibrary(library.second);
+#else
+            dlclose(library.second);
+#endif
+        }
+        delete reinterpret_cast<LibrariesMap*>(libraries);
     }
 }
 

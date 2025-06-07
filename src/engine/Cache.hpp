@@ -46,7 +46,7 @@ public:
     Cache() = default;
     void addClassTemplate(const std::string& name, const std::vector<Variable>& variables, const std::vector<std::string>& methods);
     void addFunctionTemplate(const std::string& name, const std::vector<Variable>& parameters, const StmtList& body);
-    void addNativeFunction(const std::string& name, const std::vector<NativeType>& parameters, NativeType result);
+    void addNativeFunction(const std::string& library, const std::string& name, const std::vector<NativeType>& parameters, NativeType result);
     void addFunctionInstantiation(const std::string& name, const std::vector<Type>& types, LocalSymbols *params, Context *context);
     Type getFunctionInstantiationType(const std::string& name, const std::vector<Type>& types) const;
     CacheType getCacheType(const std::string& name) const;
@@ -57,11 +57,13 @@ public:
     const auto& getInstantiations() const { return instantiations; }
     const auto& getNativeFunctions() const { return nativeFunctions; }
     void clearInstantiations() { instantiations.clear(); }
+    ~Cache();
 private:
     std::unordered_map<std::string,Class> classes;
     std::unordered_map<std::string,Function> functions;
     std::vector<NativeFunction> nativeFunctions;
     std::vector<Instantiation> instantiations;
+    void *libraries = nullptr;
 };
 
 } // namespace abaci::engine
