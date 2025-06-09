@@ -206,8 +206,8 @@ g()
 For C or C++ functions linked to the executable the `native` keyword makes them available in the interpreter.
 
 ```
-native fn sin(f64) -> f64
-native fn puts(i8*) -> none
+native fn user.sine(f64) -> f64
+native fn user.putstr(i8*) -> none
 ```
 
 Note that the types are different from regular Abaci types, they are:
@@ -219,8 +219,8 @@ and convert from `int`, `float` and `str` automatically.
 Call syntax is the same as for regular functions:
 
 ```
-print sin(3.14 / 2)
-puts("Abaci")
+print sine(3.14 / 2)
+putstr("Abaci")
 ```
 
 ### Class definition
@@ -282,6 +282,8 @@ msbuild Abaci.sln -t:abacitests -p:Configuration=Release -m
 * **0.2.0** (2025-May-18): Strings assumed to use UTF-8 encoding, splicing and slicing support for lists and strings, library can throw exceptions for Windows build
 
 * **0.2.1** (2025-Jun-02): Added support for native functions, libraries must be already linked to executable to use functions from them.
+
+* **0.2.2** (2025-Jun-09): Multiple native libraries can be dynamically loaded at runtime.
 
 ## License
 
