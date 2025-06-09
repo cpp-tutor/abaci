@@ -1002,7 +1002,7 @@ void TypeCodeGen::codeGen(const MethodCall& methodCall) const {
 template<>
 void TypeCodeGen::codeGen(const NativeFunction& nativeFn) const {
 #ifdef ABACI_USE_OLDER_BOOST
-    cache->addNativeFunction((nativeFn.isDot == ".") ? nativeFn.library : "", nativeFn.name.name, nativeFn.params, nativeFn.result);
+    cache->addNativeFunction((nativeFn.isDot == DOT) ? nativeFn.library : "", nativeFn.name.name, nativeFn.params, nativeFn.result);
 #else
     cache->addNativeFunction((!nativeFn.library.empty() && nativeFn.library.back() == DOT[0]) ? nativeFn.library.substr(0, nativeFn.library.size() - 1) : "", nativeFn.name.name, nativeFn.params, nativeFn.result);
 #endif

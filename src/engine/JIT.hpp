@@ -39,7 +39,6 @@ class JIT {
     GlobalVariable *globalContext;
     LLJITBuilder jitBuilder;
     llvm::Expected<std::unique_ptr<LLJIT>> jit{ nullptr };
-    //std::unordered_map<std::string,void*> symbols;
     void initialize();
 public:
     JIT(const std::string& moduleName, const std::string& functionName, Context *runtimeContext, Cache *cache)

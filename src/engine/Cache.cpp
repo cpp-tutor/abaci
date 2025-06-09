@@ -3,6 +3,7 @@
 #include "utility/Report.hpp"
 #include "localize/Messages.hpp"
 #include <algorithm>
+
 using namespace std::literals;
 #ifdef _WIN64
 #include <windows.h>
@@ -78,7 +79,7 @@ void Cache::addNativeFunction(const std::string& libraryName, const std::string&
         if (libraryName.empty()) {
             libraryHandle = GetModuleHandle(NULL);
         }
-        else if (auto iter = libraries.find(libraryName); iter != libraries.end()) {
+        else if (auto iter = reinterpret_cast<LibrariesMap*>(libraries)->find(libraryName); iter != reinterpret_cast<LibrariesMap*>(libraries)->end()) {
             libraryHandle = iter->second;
         }
         else {
