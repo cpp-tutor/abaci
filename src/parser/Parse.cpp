@@ -616,7 +616,7 @@ const auto method_call_def = this_call_items[MakeStmt<MethodCall>()] | method_ca
 
 const auto native_type_def = lexeme[string(NONE) | string(I8_STAR)| string(I64_STAR) | string(F64_STAR) | string(I1) | string(I8) | string(I16) | string(I32) | string(I64) | string(F32) | string(F64)][makeNative];
 const auto native_call_args_def = LEFT_PAREN >> -( native_type >> *( COMMA >> native_type) ) >> RIGHT_PAREN;
-const auto native_function_items_def = -( *(char_ - DOT[0]) >> string(DOT) ) >> identifier >> native_call_args >> -(TO >> native_type);
+const auto native_function_items_def = *( char_ - LEFT_PAREN[0] ) >> native_call_args >> -(TO >> native_type);
 const auto native_function_def = lit(NATIVE) >> FN >> native_function_items[MakeStmt<NativeFunction>()];
 
 const auto expression_stmt_items_def = expression;

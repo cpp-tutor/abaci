@@ -753,7 +753,14 @@ void StmtCodeGen::codeGen(const MethodCall& methodCall) const {
 
 template<>
 void StmtCodeGen::codeGen([[maybe_unused]] const NativeFunction& nativeFn) const {
-    const auto& nativeFunction = jit.getCache()->getNativeFunction(nativeFn.name.name);
+    std::string name;
+    if (auto sep = nativeFn.libraryFunction.find(DOT); sep == std::string::npos) {
+        name = nativeFn.libraryFunction;
+    }
+    else {
+        name = nativeFn.libraryFunction.substr(sep + std::string(DOT).size());
+    }
+    const auto& nativeFunction = jit.getCache()->getNativeFunction(name);
     std::vector<LLVMType> paramTypes;
     for (const auto& type : nativeFunction.parameterTypes) {
         paramTypes.push_back(typeToLLVMType(jit, nativeTypeToType(type)));

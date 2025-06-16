@@ -120,12 +120,7 @@ struct MethodCall {
 };
 
 struct NativeFunction {
-#ifdef ABACI_USE_OLDER_BOOST
-    std::string library, isDot;
-#else
-    std::string library;
-#endif
-    Variable name;
+    std::string libraryFunction;
     std::vector<NativeType> params;
     NativeType result;
 };
@@ -162,11 +157,7 @@ BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ReturnStmt, expression)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExprFunction, name, parameters, expression)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Class, name, variables, methods)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodCall, name, memberList, method, args)
-#ifdef ABACI_USE_OLDER_BOOST
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::NativeFunction, library, isDot, name, params, result)
-#else
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::NativeFunction, library, name, params, result)
-#endif
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::NativeFunction, libraryFunction, params, result)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExpressionStmt, expression)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::StmtList, statements)
 
