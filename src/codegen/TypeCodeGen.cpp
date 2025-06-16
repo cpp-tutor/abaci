@@ -378,9 +378,31 @@ void TypeEvalGen::codeGen(const FunctionValueCall& call) const {
                 }
                 TypeEvalGen expr(context, cache, locals);
                 expr(arg);
-                if (expr.get() != nativeTypeToType(*iter++)) {
+                if (typeToScalar(expr.get()) != nativeTypeToType(*iter)) {
                     LogicError2(ArgumentType, static_cast<int>(iter - nativeFunction.parameterTypes.cbegin()), call.name);
                 }
+                if (*iter == NativeType::i64star) {
+                    auto list = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(expr.get()));
+                    if (list == nullptr) {
+                        LogicError0(BadType);
+                    }
+                    else if (typeToScalar(list->elementType) != AbaciValue::Integer) {
+                        LogicError1(BadListType, typeToString(expr.get()));
+                    }
+                }
+                else if (*iter == NativeType::f64star) {
+                    auto list = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(expr.get()));
+                    if (list == nullptr) {
+                        LogicError0(BadType);
+                    }
+                    else if (typeToScalar(list->elementType) != AbaciValue::Integer) {
+                        LogicError1(BadListType, typeToString(expr.get()));
+                    }
+                }
+                if ((*iter == NativeType::i64star || *iter == NativeType::f64star) && isConstant(expr.get())) {
+                    LogicError1(ListIsConst, typeToString(expr.get()));
+                }
+                ++iter;
             }
             auto nativeReturnType = nativeTypeToType(nativeFunction.returnType);
             push(nativeReturnType);
@@ -888,9 +910,31 @@ void TypeCodeGen::codeGen(const FunctionCall& functionCall) const {
                 }
                 TypeEvalGen expr(context, cache, locals);
                 expr(arg);
-                if (expr.get() != nativeTypeToType(*iter++)) {
+                if (typeToScalar(expr.get()) != nativeTypeToType(*iter)) {
                     LogicError2(ArgumentType, static_cast<int>(iter - cacheNativeFunction.parameterTypes.cbegin()), functionCall.name);
                 }
+                if (*iter == NativeType::i64star) {
+                    auto list = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(expr.get()));
+                    if (list == nullptr) {
+                        LogicError0(BadType);
+                    }
+                    else if (typeToScalar(list->elementType) != AbaciValue::Integer) {
+                        LogicError1(BadListType, typeToString(expr.get()));
+                    }
+                }
+                else if (*iter == NativeType::f64star) {
+                    auto list = std::dynamic_pointer_cast<TypeList>(std::get<std::shared_ptr<TypeBase>>(expr.get()));
+                    if (list == nullptr) {
+                        LogicError0(BadType);
+                    }
+                    else if (typeToScalar(list->elementType) != AbaciValue::Integer) {
+                        LogicError1(BadListType, typeToString(expr.get()));
+                    }
+                }
+                if ((*iter == NativeType::i64star || *iter == NativeType::f64star) && isConstant(expr.get())) {
+                    LogicError1(ListIsConst, typeToString(expr.get()));
+                }
+                ++iter;
             }
             break;
         }

@@ -74,6 +74,8 @@ MESSAGE(ErrorAtLine, "Error at line {}: ");
 MESSAGE(EmptyListNeedsType, "An empty list must be given an element type.");
 MESSAGE(ListTypeMismatch, "Mismatching types for list elements (\'{}\' and \'{}\').");
 MESSAGE(VariableNotList, "Variable \'{}\' is not a list or a string.");
+MESSAGE(BadListType, "List elements have the wrong type for this function call (list must be of type \'{}\').");
+MESSAGE(ListIsConst, "List of type \'{}\' passed to function must not be constant.");
 MESSAGE(IndexNotInt, "Index to \'{}\' must be of integer type.");
 MESSAGE(SliceNotInt, "Slice begin and end for \'{}\' must be of integer type.");
 MESSAGE(SliceNotAtEnd, "Slice \'{}\' must be last entity of assignment.");

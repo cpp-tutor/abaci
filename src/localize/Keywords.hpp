@@ -85,6 +85,8 @@ SYMBOL(I64, "i64");
 SYMBOL(F32, "f32");
 SYMBOL(F64, "f64");
 SYMBOL(I8_STAR, "i8*");
+SYMBOL(I64_STAR, "i64*");
+SYMBOL(F64_STAR, "f64*");
 
 SYMBOL(THIS_V, "_this");
 SYMBOL(RETURN_V, "_return");

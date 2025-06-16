@@ -715,6 +715,10 @@ void ExprCodeGen::codeGen(const FunctionValueCall& call) const {
                         builder.CreateStore(ConstantInt::get(builder.getInt8Ty(), 0), builder.CreateGEP(builder.getInt8Ty(), conversion, length ));
                         break;
                     }
+                    case NativeType::i64star:
+                    case NativeType::f64star:
+                        conversion = builder.CreateLoad(PointerType::get(jit.getNamedType("struct.List"), 0), builder.CreateStructGEP(jit.getNamedType("struct.List"), result.first, 1));
+                        break;
                     case NativeType::i1:
                     case NativeType::i64:
                     case NativeType::f64:
@@ -730,6 +734,8 @@ void ExprCodeGen::codeGen(const FunctionValueCall& call) const {
             Value *conversion;
             switch (jit.getCache()->getNativeFunction(call.name).returnType) {
                 case NativeType::none:
+                case NativeType::i64star:
+                case NativeType::f64star:
                     conversion = ConstantPointerNull::get(PointerType::get(jit.getNamedType("struct.Instance"), 0));
                     break;
                 case NativeType::i8:

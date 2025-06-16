@@ -59,7 +59,7 @@ struct TypeList : TypeBase {
     Type elementType;
 };
 
-enum class NativeType { none, i1, i8, i16, i32, i64, f32, f64, i8star };
+enum class NativeType { none, i1, i8, i16, i32, i64, f32, f64, i8star, i64star, f64star };
 
 AbaciValue::Type typeToScalar(const Type& type);
 std::string typeToString(const Type& type);

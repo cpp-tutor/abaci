@@ -73,6 +73,9 @@ AbaciValue::Type nativeTypeToType(const NativeType nativeType) {
             return AbaciValue::Floating;
         case NativeType::i8star:
             return AbaciValue::String;
+        case NativeType::i64star:
+        case NativeType::f64star:
+            return AbaciValue::List;
         default:
             UnexpectedError0(BadType);
     }
@@ -264,7 +267,9 @@ const std::unordered_map<std::string,NativeType> NativeTypes {
     { I64, NativeType::i64 },
     { F32, NativeType::f32 },
     { F64, NativeType::f64 },
-    { I8_STAR, NativeType::i8star }
+    { I8_STAR, NativeType::i8star },
+    { I64_STAR, NativeType::i64star },
+    { F64_STAR, NativeType::f64star }
 };
 
 } // namespace abaci::utility
