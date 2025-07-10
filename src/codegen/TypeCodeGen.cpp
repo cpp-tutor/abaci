@@ -653,11 +653,6 @@ void TypeCodeGen::codeGen(const PrintStmt& print) const {
     if (!std::holds_alternative<std::monostate>(print.expression.data)) {
         printData.push_back(print.expression);
     }
-#ifdef ABACI_USE_OLDER_BOOST
-    if (print.separator != Operator::None) {
-        printData.push_back(print.separator);
-    }
-#endif
     for (const auto& format : print.format) {
         if (std::holds_alternative<Operator>(format.data)) {
             printData.push_back(std::get<Operator>(format.data));
@@ -665,6 +660,9 @@ void TypeCodeGen::codeGen(const PrintStmt& print) const {
         else {
             printData.push_back(format);
         }
+    }
+    if (print.trailing != Operator::None && print.trailing != Operator::Colon) {
+        printData.push_back(print.trailing);
     }
     for (auto field : printData) {
         switch (field.index()) {

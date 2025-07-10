@@ -133,6 +133,7 @@ x3::rule<class bitwise_xor, Operator> const bitwise_xor;
 x3::rule<class bitwise_compl, Operator> const bitwise_compl;
 x3::rule<class comma, Operator> const comma;
 x3::rule<class semicolon, Operator> const semicolon;
+x3::rule<class colon, Operator> const colon;
 x3::rule<class question, Operator> const question;
 x3::rule<class bang, Operator> const bang;
 x3::rule<class from, Operator> const from;
@@ -514,6 +515,7 @@ const auto bitwise_compl_def = string(BITWISE_COMPL)[getOperator];
 
 const auto comma_def = string(COMMA)[getOperator];
 const auto semicolon_def = string(SEMICOLON)[getOperator];
+const auto colon_def = string(COLON)[getOperator];
 const auto question_def = string(QUESTION)[getOperator];
 const auto bang_def = string(BANG)[getOperator];
 const auto from_def = string(FROM)[getOperator];
@@ -574,7 +576,7 @@ const auto keywords_def = lit(AND) | CASE | CLASS | COMPLEX | ELSE | ENDCASE | E
 
 const auto comment_items_def = lexeme[*( char_ - '\n' )];
 const auto comment_def = REM >> comment_items[MakeStmt<CommentStmt>()];
-const auto print_items_def = -( expression >> -( ( comma | semicolon ) >> *( expression >> ( comma | semicolon ) ) ) );
+const auto print_items_def = -( expression >> -( *( ( comma | semicolon ) >> expression ) ) >> ( comma | semicolon | colon ) );
 const auto print_stmt_def = PRINT >> print_items[MakeStmt<PrintStmt>()];
 const auto let_items_def = variable >> (equal | from) >> expression;
 const auto let_stmt_def = LET >> let_items[MakeStmt<InitStmt>()];
@@ -629,7 +631,7 @@ BOOST_SPIRIT_DEFINE(number_str, base_number_str, boolean_str, string_str, value)
 BOOST_SPIRIT_DEFINE(plus, minus, times, divide, modulo, floor_divide, exponent,
     equal, not_equal, less, less_equal, greater_equal, greater,
     logical_and, logical_or, logical_not, bitwise_and, bitwise_or, bitwise_xor, bitwise_compl,
-    comma, semicolon, question, bang, from, to)
+    comma, semicolon, colon, question, bang, from, to)
 BOOST_SPIRIT_DEFINE(expression, logic_or, logic_and, logic_and_n,
     bit_or, bit_or_n, bit_xor, bit_xor_n, bit_and, bit_and_n,
     equality, equality_n, comparison, comparison_n,
