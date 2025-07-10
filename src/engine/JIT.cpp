@@ -138,11 +138,11 @@ void JIT::initialize() {
         const auto& cacheFunction = cache->getFunction(instantiation.name);
         LocalSymbols parameters;
         for (std::size_t index = 0; const auto& param : cacheFunction.parameters) {
-            parameters.add(param.name, nullptr, instantiation.parameterTypes.at(index));
+            parameters.add(param.name.name, nullptr, instantiation.parameterTypes.at(index));
             ++index;
         }
         TypeCodeGen typeGen(runtimeContext, cache, &parameters,
-            (cacheFunction.parameters.size() >= 1 && cacheFunction.parameters.at(0).name == THIS_V)
+            (cacheFunction.parameters.size() >= 1 && cacheFunction.parameters.at(0).name.name == THIS_V)
             ? TypeCodeGen::Method : TypeCodeGen::FreeFunction);
         typeGen(cacheFunction.body);
         Assert(typeGen.get() == instantiation.returnType);

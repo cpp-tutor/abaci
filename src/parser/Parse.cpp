@@ -30,6 +30,8 @@ using abaci::utility::Operator;
 using abaci::utility::Operators;
 using abaci::utility::Complex;
 using abaci::utility::String;
+using abaci::utility::Type;
+using abaci::utility::TypeList;
 using abaci::utility::TypeConversions;
 using abaci::utility::NativeType;
 using abaci::utility::NativeTypes;
@@ -47,6 +49,7 @@ using abaci::ast::EmptyListItems;
 using abaci::ast::List;
 using abaci::ast::CallList;
 using abaci::ast::MultiCall;
+using abaci::ast::Parameter;
 using abaci::ast::StmtNode;
 using abaci::ast::StmtList;
 using abaci::ast::CommentStmt;
@@ -131,6 +134,8 @@ x3::rule<class bitwise_and, Operator> const bitwise_and;
 x3::rule<class bitwise_or, Operator> const bitwise_or;
 x3::rule<class bitwise_xor, Operator> const bitwise_xor;
 x3::rule<class bitwise_compl, Operator> const bitwise_compl;
+x3::rule<class left_bracket, Operator> const left_bracket;
+x3::rule<class right_bracket, Operator> const right_bracket;
 x3::rule<class comma, Operator> const comma;
 x3::rule<class semicolon, Operator> const semicolon;
 x3::rule<class colon, Operator> const colon;
@@ -239,6 +244,8 @@ struct repeat_stmt_class;
 struct when_items_class;
 struct case_items_class;
 struct case_stmt_class;
+struct parameter_type_class;
+struct function_parameter_class;
 struct function_parameters_class;
 struct function_items_class;
 struct function_class;
@@ -281,7 +288,9 @@ x3::rule<struct repeat_stmt_class, StmtNode> const repeat_stmt;
 x3::rule<struct when_items_class, WhenStmt> const when_items;
 x3::rule<struct case_items_class, CaseStmt> const case_items;
 x3::rule<struct case_stmt_class, StmtNode> const case_stmt;
-x3::rule<struct function_parameters_class, std::vector<Variable>> const function_parameters;
+x3::rule<struct parameter_type_class, Type> const parameter_type;
+x3::rule<struct function_parameter_class, Parameter> const function_parameter;
+x3::rule<struct function_parameters_class, std::vector<Parameter>> const function_parameters;
 x3::rule<struct function_items_class, Function> const function_items;
 x3::rule<struct function_class, StmtNode> const function;
 x3::rule<struct expression_function_items_class, ExprFunction> const expression_function_items;
@@ -324,6 +333,8 @@ struct repeat_stmt_class : error_handler, x3::annotate_on_success {};
 struct when_items_class : error_handler, x3::annotate_on_success {};
 struct case_items_class : error_handler, x3::annotate_on_success {};
 struct case_stmt_class : error_handler, x3::annotate_on_success {};
+struct parameter_type_class : error_handler, x3::annotate_on_success {};
+struct function_parameter_class : error_handler, x3::annotate_on_success {};
 struct function_parameters_class : error_handler, x3::annotate_on_success {};
 struct function_items_class : error_handler, x3::annotate_on_success {};
 struct function_class : error_handler, x3::annotate_on_success {};
@@ -450,6 +461,47 @@ auto makeNative = [](auto& ctx){
     _val(ctx) = iter->second;
 };
 
+auto makeParameterType = [](auto& ctx){
+    std::string type = get<std::string>(at_c<1>(_attr(ctx)));
+    AbaciValue::Type coreType;
+    if (type == NIL) {
+        coreType = AbaciValue::None;
+    }
+    else if (type == BOOL) {
+        coreType = AbaciValue::Boolean;
+    }
+    else if (type == INT) {
+        coreType = AbaciValue::Integer;
+    }
+    else if (type == FLOAT) {
+        coreType = AbaciValue::Floating;
+    }
+    else if (type == COMPLEX) {
+        coreType = AbaciValue::Complex;
+    }
+    else if (type == STR) {
+        coreType = AbaciValue::String;
+    }
+    else {
+        coreType = AbaciValue::None;
+    }
+    unsigned depthLeft = at_c<0>(_attr(ctx)).size(), depthRight = at_c<2>(_attr(ctx)).size();
+    if (depthLeft != depthRight) {
+        LogicError0(BracketMismatch);
+    }
+    else if (depthLeft != 0) {
+        auto listType = std::make_shared<TypeList>();
+        listType->elementType = Type{ coreType };
+        for (unsigned i = 1; i != depthLeft; ++i) {
+            listType->elementType = listType;
+        }
+        _val(ctx) = listType;
+    }
+    else {
+        _val(ctx) = Type{ coreType };
+    }
+};
+
 template<std::size_t Ty = ExprNode::Unset>
 struct MakeNode {
     template<typename Context>
@@ -513,6 +565,8 @@ const auto bitwise_or_def = string(BITWISE_OR)[getOperator];
 const auto bitwise_xor_def = string(BITWISE_XOR)[getOperator];
 const auto bitwise_compl_def = string(BITWISE_COMPL)[getOperator];
 
+const auto left_bracket_def = string(LEFT_BRACKET)[getOperator];
+const auto right_bracket_def = string(RIGHT_BRACKET)[getOperator];
 const auto comma_def = string(COMMA)[getOperator];
 const auto semicolon_def = string(SEMICOLON)[getOperator];
 const auto colon_def = string(COLON)[getOperator];
@@ -541,7 +595,7 @@ const auto type_conversion_items_def = ( string(INT) | string(FLOAT) | string(CO
     | string(REAL) | string(IMAG) ) >> LEFT_PAREN >> expression >> RIGHT_PAREN;
 const auto type_conversion_def = type_conversion_items[makeTypeConversion];
 const auto list_items_def = LEFT_BRACKET >> expression >> *( COMMA >> expression ) >> RIGHT_BRACKET;
-const auto empty_list_items_def = LEFT_BRACKET >> ( string(BOOL) | string(INT) | string(FLOAT) | string(COMPLEX) | string(STR) ) >> RIGHT_BRACKET;
+const auto empty_list_items_def = LEFT_BRACKET >> ( string(NIL) | string(BOOL) | string(INT) | string(FLOAT) | string(COMPLEX) | string(STR) ) >> RIGHT_BRACKET;
 const auto list_def = list_items[makeList] | empty_list_items[makeEmptyList];
 
 const auto expression_def = logic_or[MakeNode<ExprNode::Boolean>()];
@@ -597,10 +651,12 @@ const auto when_items_def = WHEN > expression >> *( COMMA > expression ) > block
 const auto case_items_def = expression > *when_items > -( ELSE > block );
 const auto case_stmt_def = CASE > case_items[MakeStmt<CaseStmt>()] > ENDCASE;
 
-const auto function_parameters_def = LEFT_PAREN > -( variable >> *( COMMA > variable ) ) > RIGHT_PAREN;
-const auto function_items_def = identifier > function_parameters > block;
+const auto parameter_type_def = ( *left_bracket >> ( string(NIL) | string(BOOL) | string(INT) | string(FLOAT) | string(COMPLEX) | string(STR) ) >> *right_bracket )[makeParameterType];
+const auto function_parameter_def = variable >> -( COLON >> parameter_type );
+const auto function_parameters_def = LEFT_PAREN > -( function_parameter >> *( COMMA > function_parameter ) ) > RIGHT_PAREN;
+const auto function_items_def = identifier > function_parameters >> -( TO >> parameter_type ) > block;
 const auto function_def = FN > function_items[MakeStmt<Function>()] > ENDFN;
-const auto expression_function_items_def = identifier >> function_parameters > TO > expression;
+const auto expression_function_items_def = identifier >> function_parameters >> -( COLON >> parameter_type ) > TO > expression;
 const auto expression_function_def = LET >> expression_function_items[MakeStmt<ExprFunction>()];
 
 const auto call_args_def = LEFT_PAREN >> -( expression >> *( COMMA >> expression) ) >> RIGHT_PAREN;
@@ -631,6 +687,7 @@ BOOST_SPIRIT_DEFINE(number_str, base_number_str, boolean_str, string_str, value)
 BOOST_SPIRIT_DEFINE(plus, minus, times, divide, modulo, floor_divide, exponent,
     equal, not_equal, less, less_equal, greater_equal, greater,
     logical_and, logical_or, logical_not, bitwise_and, bitwise_or, bitwise_xor, bitwise_compl,
+    left_bracket, right_bracket,
     comma, semicolon, colon, question, bang, from, to)
 BOOST_SPIRIT_DEFINE(expression, logic_or, logic_and, logic_and_n,
     bit_or, bit_or_n, bit_xor, bit_xor_n, bit_and, bit_and_n,
@@ -643,6 +700,7 @@ BOOST_SPIRIT_DEFINE(identifier, variable, function_value_call,
     let_items, let_stmt, assign_list, assign_items, assign_stmt, if_items, if_stmt,
     when_items, while_items, while_stmt, repeat_items, repeat_stmt, case_items, case_stmt,
     native_type, native_call_args, native_function, native_function_items,
+    parameter_type, function_parameter,
     function_parameters, function_items, function, call_args, call_items, function_call,
     expression_function_items, expression_function,
     return_items, return_stmt, class_items, class_template,

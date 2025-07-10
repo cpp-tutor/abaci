@@ -81,7 +81,8 @@ struct CaseStmt {
 
 struct Function {
     std::string name;
-    std::vector<Variable> parameters;
+    std::vector<Parameter> parameters;
+    Type optionalReturnType;
     StmtList functionBody;
 };
 
@@ -98,15 +99,16 @@ struct ReturnStmt {
 
 struct ExprFunction {
     std::string name;
-    std::vector<Variable> parameters;
+    std::vector<Parameter> parameters;
     ExprNode expression;
+    Type optionalReturnType;
 };
 
 using FunctionList = std::vector<Function>;
 
 struct Class {
     std::string name;
-    std::vector<Variable> variables;
+    std::vector<Parameter> variables;
     FunctionList methods;    
 };
 
@@ -145,10 +147,10 @@ BOOST_FUSION_ADAPT_STRUCT(abaci::ast::WhileStmt, condition, loopBlock)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::RepeatStmt, loopBlock, condition)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::WhenStmt, expression, expressions, block)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::CaseStmt, caseValue, matches, unmatched)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Function, name, parameters, functionBody)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Function, name, parameters, optionalReturnType, functionBody)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::FunctionCall, name, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ReturnStmt, expression)
-BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExprFunction, name, parameters, expression)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExprFunction, name, parameters, optionalReturnType, expression)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Class, name, variables, methods)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MethodCall, name, memberList, method, args)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::NativeFunction, libraryFunction, params, result)

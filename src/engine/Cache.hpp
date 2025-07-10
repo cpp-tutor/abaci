@@ -14,6 +14,7 @@
 namespace abaci::engine {
 
 using abaci::ast::Variable;
+using abaci::ast::Parameter;
 using abaci::ast::NativeType;
 using abaci::ast::StmtList;
 using abaci::utility::AbaciValue;
@@ -24,11 +25,12 @@ using abaci::utility::LocalSymbols;
 class Cache {
 public:
     struct Class {
-        std::vector<Variable> variables;
+        std::vector<Parameter> variables;
         std::vector<std::string> methods;
     };
     struct Function {
-        std::vector<Variable> parameters;
+        std::vector<Parameter> parameters;
+        Type returnType;
         StmtList body;
     };
     struct Instantiation {
@@ -44,8 +46,8 @@ public:
     };
     enum CacheType{ CacheClass, CacheFunction, CacheNativeFunction, CacheNone };
     Cache() = default;
-    void addClassTemplate(const std::string& name, const std::vector<Variable>& variables, const std::vector<std::string>& methods);
-    void addFunctionTemplate(const std::string& name, const std::vector<Variable>& parameters, const StmtList& body);
+    void addClassTemplate(const std::string& name, const std::vector<Parameter>& variables, const std::vector<std::string>& methods);
+    void addFunctionTemplate(const std::string& name, const std::vector<Parameter>& parameters, const Type& returnType, const StmtList& body);
     void addNativeFunction(const std::string& library, const std::string& name, const std::vector<NativeType>& parameters, NativeType result);
     void addFunctionInstantiation(const std::string& name, const std::vector<Type>& types, LocalSymbols *params, Context *context);
     Type getFunctionInstantiationType(const std::string& name, const std::vector<Type>& types) const;

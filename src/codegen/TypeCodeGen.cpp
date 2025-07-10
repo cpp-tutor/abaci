@@ -30,6 +30,7 @@ using abaci::ast::WhileStmt;
 using abaci::ast::RepeatStmt;
 using abaci::ast::CaseStmt;
 using abaci::ast::WhenStmt;
+using abaci::ast::Parameter;
 using abaci::ast::Function;
 using abaci::ast::FunctionCall;
 using abaci::ast::ReturnStmt;
@@ -351,20 +352,32 @@ void TypeEvalGen::codeGen(const FunctionValueCall& call) const {
             LocalSymbols params;
             for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
                 auto type = *argType++;
-                params.add(parameter.name, nullptr, addConstToType(type));
+                if (typeToScalar(parameter.optionalType) != AbaciValue::None && type != parameter.optionalType) {
+                    LogicError2(TypeMismatch, static_cast<int>(argType - types.begin()), call.name);
+                }
+                params.add(parameter.name.name, nullptr, addConstToType(type));
             }
             cache->addFunctionInstantiation(call.name, types, &params, context);
             auto returnType = cache->getFunctionInstantiationType(call.name, types);
+            if (typeToScalar(cacheFunction.returnType) != AbaciValue::None && returnType != cacheFunction.returnType) {
+                LogicError2(ResultTypeMismatch, typeToString(returnType), typeToString(cacheFunction.returnType));
+            }
             push(returnType);
             break;
         }
         case Cache::CacheClass: {
+            const Cache::Class& cacheClass = cache->getClass(call.name);
             auto object = std::make_shared<TypeInstance>();
             object->className = call.name;
-            for (const auto& arg : call.args) {
+            for (auto member = cacheClass.variables.begin(); const auto& arg : call.args) {
                 TypeEvalGen expr(context, cache, locals);
                 expr(arg);
+                auto type = member->optionalType;;
+                if (typeToScalar(member->optionalType) != AbaciValue::None && expr.get() != member->optionalType) {
+                    LogicError2(TypeMismatchClass, static_cast<int>(member - cacheClass.variables.begin() + 1), call.name);
+                }
                 object->variableTypes.push_back(expr.get());
+                ++member;
             }
             push(object);
             break;
@@ -579,7 +592,7 @@ void TypeEvalGen::codeGen(const MultiCall& call) const {
                 params.add(THIS_V, nullptr, type);
                 for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
                     auto type = *argType++;
-                    params.add(parameter.name, nullptr, addConstToType(type));
+                    params.add(parameter.name.name, nullptr, addConstToType(type));
                 }
                 cache->addFunctionInstantiation(methodName, types, &params, context);
                 type = cache->getFunctionInstantiationType(methodName, types);
@@ -876,7 +889,7 @@ void TypeCodeGen::codeGen(const Function& function) const {
     if (functionType != NotAFunction) {
         LogicError0(FunctionTopLevel);
     }
-    cache->addFunctionTemplate(function.name, function.parameters, function.functionBody);
+    cache->addFunctionTemplate(function.name, function.parameters, function.optionalReturnType, function.functionBody);
 }
 
 template<>
@@ -894,7 +907,7 @@ void TypeCodeGen::codeGen(const FunctionCall& functionCall) const {
             LocalSymbols params;
             for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
                 auto type = *argType++;
-                params.add(parameter.name, nullptr, addConstToType(type));
+                params.add(parameter.name.name, nullptr, addConstToType(type));
             }
             cache->addFunctionInstantiation(functionCall.name, types, &params, context);
             break;
@@ -962,7 +975,7 @@ template<>
 void TypeCodeGen::codeGen(const ExprFunction& expressionFunction) const {
     StmtList functionBody;
     functionBody.statements.emplace_back(ReturnStmt{ expressionFunction.expression });
-    cache->addFunctionTemplate(expressionFunction.name, expressionFunction.parameters, functionBody);
+    cache->addFunctionTemplate(expressionFunction.name, expressionFunction.parameters, expressionFunction.optionalReturnType, functionBody);
 }
 
 template<>
@@ -971,8 +984,8 @@ void TypeCodeGen::codeGen(const Class& classTemplate) const {
     for (const auto& method : classTemplate.methods) {
         methodNames.push_back(method.name);
         auto methodParameters = method.parameters;
-        methodParameters.emplace(methodParameters.begin(), THIS_V);
-        cache->addFunctionTemplate(classTemplate.name + '.' + method.name, methodParameters, method.functionBody);
+        methodParameters.emplace(methodParameters.begin(), Variable{ THIS_V }, AbaciValue::None);
+        cache->addFunctionTemplate(classTemplate.name + '.' + method.name, methodParameters, AbaciValue::None, method.functionBody);
     }
     cache->addClassTemplate(classTemplate.name, classTemplate.variables, methodNames);
 }
@@ -1032,7 +1045,7 @@ void TypeCodeGen::codeGen(const MethodCall& methodCall) const {
         params.add(THIS_V, nullptr, instanceType);
         for (auto argType = types.begin(); const auto& parameter : cacheFunction.parameters) {
             auto type = *argType++;
-            params.add(parameter.name, nullptr, addConstToType(type));
+            params.add(parameter.name.name, nullptr, addConstToType(type));
         }
         cache->addFunctionInstantiation(methodName, types, &params, context);
     }

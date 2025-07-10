@@ -25,6 +25,8 @@ const std::unordered_map<std::string,Operator> Operators{
     { BITWISE_AND, Operator::BitAnd },
     { BITWISE_OR, Operator::BitOr },
     { BITWISE_XOR, Operator::BitXor },
+    { LEFT_BRACKET, Operator::LeftBracket },
+    { RIGHT_BRACKET, Operator::RightBracket },
     { COMMA, Operator::Comma },
     { SEMICOLON, Operator::SemiColon },
     { COLON, Operator::Colon },

@@ -27,6 +27,9 @@ MESSAGE(ClassNotExist, "Class \'{}\' does not exist.");
 MESSAGE(DataNotExist, "Object does not have data member \'{}\'.");
 
 MESSAGE(NoType, "Type \'{}\' not found.");
+MESSAGE(TypeMismatch, "Wrong type for argument {} (for call to function \'{}\').");
+MESSAGE(TypeMismatchClass, "Wrong type for member {} (for creation of instance of \'{}\').");
+MESSAGE(ResultTypeMismatch, "Wrong return type for function (is {} and should be {}).");
 
 MESSAGE(NoLLJIT, "Failed to create LLJIT instance.");
 MESSAGE(NoModule, "Failed to add IR module.");
@@ -60,7 +63,7 @@ MESSAGE(InitialPrompt, "Abaci version {}\nEnter code, or \"{}\" to end:\n> ");
 MESSAGE(InputPrompt, "> ");
 MESSAGE(ContinuationPrompt, ". ");
 MESSAGE(SyntaxError, "Unrecognized input.");
-MESSAGE(Version, "0.2.2 (2025-Jun-09)");
+MESSAGE(Version, "0.2.4 (2025-Jul-10)");
 
 MESSAGE(BadVariableIndex, "Bad index of variable.");
 MESSAGE(BadTemporary, "Bad temporary.");
@@ -80,6 +83,7 @@ MESSAGE(IndexNotInt, "Index to \'{}\' must be of integer type.");
 MESSAGE(SliceNotInt, "Slice begin and end for \'{}\' must be of integer type.");
 MESSAGE(SliceNotAtEnd, "Slice \'{}\' must be last entity of assignment.");
 MESSAGE(TooManyIndexes, "Cannot get subscript of \'{}\'.");
+MESSAGE(BracketMismatch, "Mismatching \'[\' and \']\'.");
 MESSAGE(AssignMismatch, "Mismatching types for element assignment (\'{}\' and \'{}\').");
 MESSAGE(IncompatibleTypes, "Types \'{}\' and \'{}\' are incompatible.");
 MESSAGE(IndexOutOfRange, "Index \'{}\' is not within range for object size of \'{}\'.");

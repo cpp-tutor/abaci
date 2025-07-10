@@ -18,6 +18,7 @@ using boost::spirit::x3::position_tagged;
 using abaci::utility::AbaciValue;
 using abaci::utility::Constants;
 using abaci::utility::Operator;
+using abaci::utility::Type;
 
 struct ExprNode;
 
@@ -81,6 +82,14 @@ struct EmptyListItems : position_tagged {
     std::string elementType;
 };
 
+struct Parameter : position_tagged {
+    Parameter() = default;
+    Parameter(const Variable& name, const Type& optionalType)
+        : name{ name }, optionalType{ optionalType } {}
+    Variable name;
+    Type optionalType;
+};
+
 } // namespace abaci::ast
 
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ExprNode, data)
@@ -92,5 +101,6 @@ BOOST_FUSION_ADAPT_STRUCT(abaci::ast::ListItems, firstElement, otherElements)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::EmptyListItems, elementType)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::CallList, call)
 BOOST_FUSION_ADAPT_STRUCT(abaci::ast::MultiCall, name, calls)
+BOOST_FUSION_ADAPT_STRUCT(abaci::ast::Parameter, name, optionalType)
 
 #endif

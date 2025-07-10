@@ -25,7 +25,7 @@ using abaci::codegen::TypeCodeGen;
 using abaci::utility::mangled;
 using LibrariesMap = std::unordered_map<std::string,LibraryHandle>;
 
-void Cache::addClassTemplate(const std::string& name, const std::vector<Variable>& variables, const std::vector<std::string>& methods) {
+void Cache::addClassTemplate(const std::string& name, const std::vector<Parameter>& variables, const std::vector<std::string>& methods) {
     auto iter = classes.find(name);
     if (iter == classes.end()) {
         classes.insert({ name, { variables, methods }});
@@ -35,10 +35,10 @@ void Cache::addClassTemplate(const std::string& name, const std::vector<Variable
     }
 }
 
-void Cache::addFunctionTemplate(const std::string& name, const std::vector<Variable>& parameters, const StmtList& body) {
+void Cache::addFunctionTemplate(const std::string& name, const std::vector<Parameter>& parameters, const Type& returnType, const StmtList& body) {
     auto iter = functions.find(name);
     if (iter == functions.end()) {
-        functions.insert({ name, { parameters, body }});
+        functions.insert({ name, { parameters, returnType, body }});
     }
     else {
         LogicError1(FunctionExists, name);
@@ -212,7 +212,7 @@ const Cache::NativeFunction& Cache::getNativeFunction(const std::string& name) c
 }
 
 unsigned Cache::getMemberIndex(const Class& cacheClass, const Variable& member) const {
-    auto iter = std::find(cacheClass.variables.begin(), cacheClass.variables.end(), member);
+    auto iter = std::find_if(cacheClass.variables.begin(), cacheClass.variables.end(), [&member](const Parameter& param){ return param.name.name == member.name; });
     if (iter != cacheClass.variables.end()) {
         return iter - cacheClass.variables.begin();
     }
