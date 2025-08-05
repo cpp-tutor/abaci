@@ -29,7 +29,6 @@ const std::unordered_map<std::string,Operator> Operators{
     { RIGHT_BRACKET, Operator::RightBracket },
     { COMMA, Operator::Comma },
     { SEMICOLON, Operator::SemiColon },
-    { COLON, Operator::Colon },
     { QUESTION, Operator::Question },
     { BANG, Operator::Bang },
     { FROM, Operator::From },

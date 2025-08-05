@@ -138,7 +138,6 @@ x3::rule<class left_bracket, Operator> const left_bracket;
 x3::rule<class right_bracket, Operator> const right_bracket;
 x3::rule<class comma, Operator> const comma;
 x3::rule<class semicolon, Operator> const semicolon;
-x3::rule<class colon, Operator> const colon;
 x3::rule<class question, Operator> const question;
 x3::rule<class bang, Operator> const bang;
 x3::rule<class from, Operator> const from;
@@ -569,7 +568,6 @@ const auto left_bracket_def = string(LEFT_BRACKET)[getOperator];
 const auto right_bracket_def = string(RIGHT_BRACKET)[getOperator];
 const auto comma_def = string(COMMA)[getOperator];
 const auto semicolon_def = string(SEMICOLON)[getOperator];
-const auto colon_def = string(COLON)[getOperator];
 const auto question_def = string(QUESTION)[getOperator];
 const auto bang_def = string(BANG)[getOperator];
 const auto from_def = string(FROM)[getOperator];
@@ -580,10 +578,6 @@ const auto identifier_def = lexeme[( ( char_('A', 'Z') | char_('a', 'z') | char_
 const auto variable_def = identifier;
 const auto this_ptr_def = lit(THIS)[makeThisPtr];
 const auto function_value_call_def = identifier >> call_args;
-const auto data_value_call_def = variable >> +( DOT >> variable );
-const auto this_value_call_def = this_ptr >> *( DOT >> variable );
-const auto data_method_call_def = variable >> DOT >> *( variable >> DOT ) >> identifier >> call_args;
-const auto this_method_call_def = this_ptr >> DOT >> *( variable >> DOT ) >> identifier >> call_args;
 const auto call_index_def = +( LEFT_BRACKET >> expression >> RIGHT_BRACKET );
 const auto call_slice_def = LEFT_BRACKET >> expression >> COLON >> expression >> RIGHT_BRACKET;
 const auto call_function_def = identifier >> call_args;
@@ -630,7 +624,7 @@ const auto keywords_def = lit(AND) | CASE | CLASS | COMPLEX | ELSE | ENDCASE | E
 
 const auto comment_items_def = lexeme[*( char_ - '\n' )];
 const auto comment_def = REM >> comment_items[MakeStmt<CommentStmt>()];
-const auto print_items_def = -( expression >> -( *( ( comma | semicolon ) >> expression ) ) >> ( comma | semicolon | colon ) );
+const auto print_items_def = -( expression >> -( ( comma | semicolon ) >> *( expression >> ( comma | semicolon ) ) ) );
 const auto print_stmt_def = PRINT >> print_items[MakeStmt<PrintStmt>()];
 const auto let_items_def = variable >> (equal | from) >> expression;
 const auto let_stmt_def = LET >> let_items[MakeStmt<InitStmt>()];
@@ -688,7 +682,7 @@ BOOST_SPIRIT_DEFINE(plus, minus, times, divide, modulo, floor_divide, exponent,
     equal, not_equal, less, less_equal, greater_equal, greater,
     logical_and, logical_or, logical_not, bitwise_and, bitwise_or, bitwise_xor, bitwise_compl,
     left_bracket, right_bracket,
-    comma, semicolon, colon, question, bang, from, to)
+    comma, semicolon, question, bang, from, to)
 BOOST_SPIRIT_DEFINE(expression, logic_or, logic_and, logic_and_n,
     bit_or, bit_or_n, bit_xor, bit_xor_n, bit_and, bit_and_n,
     equality, equality_n, comparison, comparison_n,

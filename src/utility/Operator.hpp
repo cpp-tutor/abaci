@@ -10,7 +10,7 @@ enum class Operator { None, Plus, Minus, Times, Divide, Modulo, FloorDivide, Exp
     Equal, NotEqual, Less, LessEqual, GreaterEqual, Greater,
     Not, And, Or, Compl, BitAnd, BitOr, BitXor,
     LeftBracket, RightBracket,
-    Comma, SemiColon, Colon, Question, Bang, From, To };
+    Comma, SemiColon, Question, Bang, From, To };
 
 extern const std::unordered_map<std::string,Operator> Operators;
 
