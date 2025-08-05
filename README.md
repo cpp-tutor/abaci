@@ -33,7 +33,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 To build against C++23's `<format>` and `<print>` headers (if available) instead of fmt, use `cmake .. -DABACI_USE_STD_FORMAT=1"`.
 
----To build with older Boost headers, in particular version 1.74, use `cmake .. -DABACI_USE_OLDER_BOOST=1` to avoid compilation errors for `parser/Parse.cpp`.---
+To build with older Boost headers, in particular version 1.74, use `cmake .. -DABACI_USE_OLDER_BOOST=1` to avoid compilation errors for `parser/Parse.cpp`.
 
 Run `./abaci` without arguments to enter an interactive session, or with a source filename as the single argument to execute a script.
 
@@ -285,7 +285,7 @@ msbuild Abaci.sln -t:abacitests -p:Configuration=Release -m
 
 * **0.2.2** (2025-Jun-09): Multiple native libraries can be dynamically loaded at runtime.
 
-* **0.2.4** (2025-Jul-10): Allow trailing type specifiers for functions and classes, print statement changes.
+* **0.2.5** (2025-Aug-05): Allow trailing type specifiers for free function and class parameters, empty lists produce error message.
 
 ## License
 

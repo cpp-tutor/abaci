@@ -63,7 +63,7 @@ MESSAGE(InitialPrompt, "Abaci version {}\nEnter code, or \"{}\" to end:\n> ");
 MESSAGE(InputPrompt, "> ");
 MESSAGE(ContinuationPrompt, ". ");
 MESSAGE(SyntaxError, "Unrecognized input.");
-MESSAGE(Version, "0.2.4 (2025-Jul-10)");
+MESSAGE(Version, "0.2.5 (2025-Aug-05)");
 
 MESSAGE(BadVariableIndex, "Bad index of variable.");
 MESSAGE(BadTemporary, "Bad temporary.");
@@ -74,7 +74,7 @@ MESSAGE(SourceFile, "\nSource filename: {}");
 MESSAGE(LineNumber, ", Line number: {}");
 MESSAGE(ErrorAtLine, "Error at line {}: ");
 
-MESSAGE(EmptyListNeedsType, "An empty list must be given an element type.");
+MESSAGE(EmptyListNeedsType, "An empty list must be given an element type (such as \'[int]\' or \'[[str]]\').");
 MESSAGE(ListTypeMismatch, "Mismatching types for list elements (\'{}\' and \'{}\').");
 MESSAGE(VariableNotList, "Variable \'{}\' is not a list or a string.");
 MESSAGE(BadListType, "List elements have the wrong type for this function call (list must be of type \'{}\').");
