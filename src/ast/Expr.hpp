@@ -39,7 +39,7 @@ struct FunctionValueCall : position_tagged {
     ExprList args;
 };
 
-struct CallList {
+struct CallList : position_tagged {
     enum Type { TypeVariable, TypeIndexes, TypeSlice, TypeFunction };
     std::variant<Variable,ExprList,ExprPair,FunctionValueCall> call;
 };

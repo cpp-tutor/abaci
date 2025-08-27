@@ -19,7 +19,7 @@ else()
     find_package(fmt REQUIRED)
 endif()
 
-find_package(Boost COMPONENTS unit_test_framework)
+find_package(Boost CONFIG COMPONENTS unit_test_framework)
 
 if (Boost_FOUND OR Boost_INCLUDE_DIRS)
     include_directories(${Boost_INCLUDE_DIRS})
@@ -28,10 +28,6 @@ endif()
 find_package(LLVM REQUIRED CONFIG)
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
-
-if (ABACI_USE_OLDER_BOOST)
-    add_definitions(-DABACI_USE_OLDER_BOOST)
-endif()
 
 set(LIB_SOURCES
     src/lib/Abaci.cpp
