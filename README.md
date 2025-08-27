@@ -8,9 +8,9 @@ Abaci is a JIT-compiled interactive scripting language based on the LLVM toolcha
 
 To build this project requires:
 
-* A C++ compiler, tested only with `g++` version 12.2.0, Visual Studio 2022 C++ and `clang++` version 14.0.6
-* The LLVM development libraries, built against version 14.0
-* The Boost headers, specifically Boost Spirit X3 in Boost 1.74
+* A C++ compiler, tested only with `g++` version 14.2.0, Visual Studio 2022 C++ and `clang++` version 19.1.7
+* The LLVM development libraries, built against version 19
+* The Boost headers, specifically Boost Spirit X3 in Boost 1.83
 * Headers and link-library of fmt built against version 10.2.1
 
 This project was developed using Debian current stable (Bookworm).
@@ -25,15 +25,13 @@ cmake ..
 make
 ```
 
-To build with Clang it may be necessary to use C++20 (instead of C++23) in the CMakeLists.txt:
+To build with some versions of Clang it may be necessary to specify C++20 (instead of C++23) in the CMakeLists.txt:
 
 ```cmake
 set(CMAKE_CXX_STANDARD 20)
 ```
 
 To build against C++23's `<format>` and `<print>` headers (if available) instead of fmt, use `cmake .. -DABACI_USE_STD_FORMAT=1"`.
-
-To build with older Boost headers, in particular version 1.74, use `cmake .. -DABACI_USE_OLDER_BOOST=1` to avoid compilation errors for `parser/Parse.cpp`.
 
 Run `./abaci` without arguments to enter an interactive session, or with a source filename as the single argument to execute a script.
 
